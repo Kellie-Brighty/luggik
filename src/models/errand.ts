@@ -10,6 +10,21 @@ export type ErrandState =
   | 'DISPUTED'         // Quality issue or delivery failure
   | 'CANCELLED';       // Errand cancelled before execution
 
+export interface ErrandMetadata {
+  color?: string;
+  size?: string;
+  weight?: string;
+  description?: string;
+  referenceImageUrl?: string;
+  [key: string]: any;
+}
+
+export interface Location {
+  address: string;
+  latitude?: number;
+  longitude?: number;
+}
+
 export interface Errand {
   id?: string;
   buyerId: string;
@@ -17,7 +32,16 @@ export interface Errand {
   runnerId?: string | null;
   itemName: string;
   priceAmount: number;
+  deliveryFee: number;
   currency: string;
+  pickupLocation: Location;
+  dropoffLocation: Location;
+  buyerPhone: string;
+  sellerPhone: string;
+  buyerEmail?: string;
+  sellerEmail?: string;
+  runnerEmail?: string;
+  metadata?: ErrandMetadata;
   state: ErrandState;
   nombaTransactionRef?: string;
   createdAt: FieldValue;
