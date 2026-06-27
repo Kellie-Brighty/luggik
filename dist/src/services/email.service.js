@@ -2,25 +2,26 @@ import { Resend } from 'resend';
 class EmailService {
     resend = null;
     fromEmail = 'Luggik Escrow & Trust <noreply@luggik.delivery>';
-    constructor() {
-        this.initResend();
-    }
-    initResend() {
+    getResendClient() {
+        if (this.resend)
+            return this.resend;
         const apiKey = process.env.RESEND_API_KEY;
         if (!apiKey) {
             console.warn('⚠️ RESEND_API_KEY is not set in your .env file. Emails will NOT be sent.');
-            return;
+            return null;
         }
         this.resend = new Resend(apiKey);
         console.log('✉️  Resend Email Service Initialized.');
+        return this.resend;
     }
     async sendMail(to, subject, text) {
-        if (!this.resend) {
+        const client = this.getResendClient();
+        if (!client) {
             console.warn('Resend service not initialized. Cannot send email to:', to);
             return;
         }
         try {
-            const data = await this.resend.emails.send({
+            const data = await client.emails.send({
                 from: this.fromEmail,
                 to, // Note: If using a free Resend account without a verified domain, you can ONLY send emails to the email address registered with your Resend account.
                 subject,

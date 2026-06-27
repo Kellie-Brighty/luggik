@@ -10,3 +10,6 @@ ngrok.log
 # User Resources
 *.pdf
 ai-directive.md
+
+# Firebase Credentials
+service-account.json
