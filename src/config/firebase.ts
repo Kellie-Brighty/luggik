@@ -1,18 +1,19 @@
-const admin = require('firebase-admin');
+import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 
 // Ensure you have FIREBASE_SERVICE_ACCOUNT_PATH set in your .env file
 // Alternatively, if you are running this in a GCP environment, you can use application default credentials.
-if (!admin.apps.length) {
+if (!getApps().length) {
   try {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault()
+    initializeApp({
+      credential: applicationDefault()
     });
     console.log('Firebase Admin SDK initialized successfully.');
-  } catch (error) {
+  } catch (error: any) {
     console.error('Firebase initialization error', error.stack);
   }
 }
 
-const db = admin.firestore();
+const db = getFirestore();
 
-module.exports = { admin, db };
+export { db };

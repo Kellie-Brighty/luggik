@@ -1,22 +1,41 @@
-const axios = require('axios');
+import axios from 'axios';
+
+interface NombaAuthResponse {
+  code: string;
+  data: {
+    access_token: string;
+    expiresAt: string;
+    [key: string]: any;
+  };
+}
 
 class NombaService {
+  private clientId: string;
+  private clientSecret: string;
+  private accountId: string;
+  private baseUrl: string;
+  private state: 'UNAUTHENTICATED' | 'HANDSHAKE_COMPLETE';
+  private accessToken: string | null;
+  private expiresAt: string | null;
+  private refreshTimer: NodeJS.Timeout | null;
+
   constructor() {
-    this.clientId = process.env.NOMBA_CLIENT_ID;
-    this.clientSecret = process.env.NOMBA_CLIENT_SECRET;
-    this.accountId = process.env.NOMBA_ACCOUNT_ID;
-    this.baseUrl = 'https://sandbox.nomba.com/v1'; // Using Sandbox as per Phase 1
+    this.clientId = process.env.NOMBA_CLIENT_ID || '';
+    this.clientSecret = process.env.NOMBA_CLIENT_SECRET || '';
+    this.accountId = process.env.NOMBA_ACCOUNT_ID || '';
+    this.baseUrl = 'https://sandbox.nomba.com/v1'; 
     
-    // Track internal state: [UNAUTHENTICATED] -> [HANDSHAKE_COMPLETE]
     this.state = 'UNAUTHENTICATED';
     this.accessToken = null;
+    this.expiresAt = null;
+    this.refreshTimer = null;
   }
 
-  async authenticate() {
+  async authenticate(): Promise<boolean> {
     console.log('Attempting Nomba Handshake...');
     
     try {
-      const response = await axios.post(`${this.baseUrl}/auth/token/issue`, {
+      const response = await axios.post<NombaAuthResponse>(`${this.baseUrl}/auth/token/issue`, {
         grant_type: 'client_credentials',
         client_id: this.clientId,
         client_secret: this.clientSecret
@@ -41,7 +60,7 @@ class NombaService {
         console.error('Nomba Handshake FAILED: Unexpected response', response.data);
         return false;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Nomba Handshake ERROR:', error.response ? error.response.data : error.message);
       return false;
     }
@@ -63,9 +82,10 @@ class NombaService {
     }, refreshIntervalMs);
   }
 
-  getAccessToken() {
+  getAccessToken(): string | null {
     return this.accessToken;
   }
 }
 
-module.exports = new NombaService();
+const nombaService = new NombaService();
+export default nombaService;

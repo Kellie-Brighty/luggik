@@ -1,10 +1,11 @@
-const express = require('express');
-const crypto = require('crypto');
+import express, { Request, Response } from 'express';
+import crypto from 'crypto';
+
 const router = express.Router();
 
 const NOMBA_WEBHOOK_SECRET = 'NombaHackathon2026';
 
-function generateSignature(payload, secret, timeStamp) {
+function generateSignature(payload: any, secret: string, timeStamp: string): string {
   const requestPayload = payload;
   const data = requestPayload.data || {};
   const merchant = data.merchant || {};
@@ -30,19 +31,18 @@ function generateSignature(payload, secret, timeStamp) {
   return hmac.digest("base64");
 }
 
-router.post('/nomba', express.json(), (req, res) => {
+router.post('/nomba', express.json(), (req: Request, res: Response): any => {
   console.log("--- INCOMING WEBHOOK ---");
   console.log("Headers:", req.headers);
   console.log("Body:", req.body);
 
-  const nombaSignature = req.headers['nomba-signature'];
-  const nombaTimestamp = req.headers['nomba-timestamp'];
+  const nombaSignature = req.headers['nomba-signature'] as string;
+  const nombaTimestamp = req.headers['nomba-timestamp'] as string;
 
   const payload = req.body;
   
   if (!nombaSignature) {
     console.warn("Missing Nomba signature in headers!");
-    // We return 200 here anyway so the dashboard can verify the endpoint
     return res.status(200).send('Webhook Received (No Signature)');
   }
 
@@ -63,4 +63,4 @@ router.post('/nomba', express.json(), (req, res) => {
   res.status(200).send('Webhook Received');
 });
 
-module.exports = router;
+export default router;

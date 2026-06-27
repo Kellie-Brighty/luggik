@@ -1,18 +1,17 @@
-const express = require('express');
-const dotenv = require('dotenv');
+import express, { Request, Response } from 'express';
+import dotenv from 'dotenv';
+import webhookRoutes from './src/routes/webhook.routes.js';
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-const webhookRoutes = require('./src/routes/webhook.routes');
-
 app.use(express.json());
 
 app.use('/api/webhooks', webhookRoutes);
 
-app.get('/', (req, res) => {
+app.get('/', (req: Request, res: Response) => {
   res.send('Luggik API is running');
 });
 

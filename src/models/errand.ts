@@ -1,0 +1,66 @@
+import { db } from '../config/firebase.js';
+import { FieldValue } from 'firebase-admin/firestore';
+
+export type ErrandState = 
+  | 'CREATED'          // Errand is created, funds are locked in Nomba
+  | 'ACCEPTED'         // Runner accepts the errand
+  | 'ITEM_VERIFIED'    // Runner physically verifies the item at seller's shop
+  | 'IN_PROGRESS'      // Runner is moving to the buyer
+  | 'DELIVERED'        // Buyer receives the item, Nomba funds released
+  | 'DISPUTED'         // Quality issue or delivery failure
+  | 'CANCELLED';       // Errand cancelled before execution
+
+export interface Errand {
+  id?: string;
+  buyerId: string;
+  sellerId: string;
+  runnerId?: string | null;
+  itemName: string;
+  priceAmount: number;
+  currency: string;
+  state: ErrandState;
+  nombaTransactionRef?: string;
+  createdAt: FieldValue;
+  updatedAt: FieldValue;
+}
+
+export class ErrandModel {
+  private collection = db.collection('errands');
+
+  async createErrand(errandData: Omit<Errand, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+    const docRef = this.collection.doc();
+    const newErrand: Errand = {
+      ...errandData,
+      id: docRef.id,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
+    };
+    await docRef.set(newErrand);
+    return docRef.id;
+  }
+
+  async getErrand(id: string): Promise<Errand | null> {
+    const doc = await this.collection.doc(id).get();
+    if (!doc.exists) {
+      return null;
+    }
+    return doc.data() as Errand;
+  }
+
+  async updateErrandState(id: string, newState: ErrandState): Promise<void> {
+    await this.collection.doc(id).update({
+      state: newState,
+      updatedAt: FieldValue.serverTimestamp()
+    });
+  }
+
+  async assignRunner(id: string, runnerId: string): Promise<void> {
+    await this.collection.doc(id).update({
+      runnerId: runnerId,
+      state: 'ACCEPTED',
+      updatedAt: FieldValue.serverTimestamp()
+    });
+  }
+}
+
+export const errandModel = new ErrandModel();
