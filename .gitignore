@@ -6,3 +6,7 @@ npm-debug.log
 yarn-error.log
 ngrok.log
 .DS_Store
+
+# User Resources
+*.pdf
+ai-directive.md
