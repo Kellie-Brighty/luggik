@@ -35,7 +35,7 @@ export default function RunnerSignup() {
 
       if (!res.ok) throw new Error("Failed to register company profile");
 
-      await refreshKycStatus();
+      await refreshKycStatus(userCredential.user.uid);
       navigate('/runner/kyc');
     } catch (err: any) {
       setError(err.message || "Failed to create account");
@@ -54,8 +54,10 @@ export default function RunnerSignup() {
       const res = await fetch(`/api/kyc/status/${result.user.uid}`);
       if (res.ok) {
         const data = await res.json();
-        await refreshKycStatus();
-        if (data.kycStatus === 'approved') {
+        await refreshKycStatus(result.user.uid);
+        if (data.role === 'rider') {
+          navigate('/rider/feed');
+        } else if (data.kycStatus === 'approved') {
           navigate('/runner');
         } else {
           navigate('/runner/kyc');

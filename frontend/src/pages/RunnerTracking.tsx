@@ -1,6 +1,7 @@
-import { ArrowLeft, Navigation, Loader2, Package, CheckSquare, Truck, CheckCheck } from "lucide-react";
+import { ArrowLeft, Navigation, Loader2, Package, CheckSquare, Truck, CheckCheck, PhoneCall } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
+import ChatBox from "../components/ChatBox";
 
 interface Errand {
   id: string;
@@ -23,7 +24,15 @@ export default function RunnerTracking() {
 
   useEffect(() => {
     fetchErrand();
-    return () => stopGpsTracking();
+    
+    const interval = setInterval(() => {
+      fetchErrand();
+    }, 3000);
+
+    return () => {
+      clearInterval(interval);
+      stopGpsTracking();
+    };
   }, [id]);
 
   // When errand state changes to IN_PROGRESS, start tracking
@@ -155,22 +164,35 @@ export default function RunnerTracking() {
           <div className="space-y-4">
             
             <button 
-              onClick={() => updateState('ITEM_VERIFIED')}
+              onClick={() => updateState('PENDING_VERIFICATION')}
               disabled={updating || errand.state !== 'ACCEPTED'}
-              className={`w-full py-4 rounded-xl font-medium transition-all flex items-center justify-center gap-3 ${
+              className={`w-full py-4 rounded-xl font-medium transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed ${
                 errand.state === 'ACCEPTED' ? 'bg-nomba-yellow text-nomba-dark hover:brightness-105 shadow-md hover:shadow-nomba-yellow/25' 
                 : errand.state === 'CREATED' ? 'bg-slate-100 text-slate-400'
                 : 'bg-green-500 text-white'
               }`}
             >
               {updating && errand.state === 'ACCEPTED' ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckSquare className="w-5 h-5" />}
-              {errand.state === 'ACCEPTED' ? '1. Verify Item at Pickup' : 'Item Verified'}
+              {errand.state === 'ACCEPTED' ? '1. Request Buyer Verification' : 'Verification Requested'}
             </button>
+
+            {errand.state === 'PENDING_VERIFICATION' && (
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-slate-800">Buyer Verification</h3>
+                  <a href={`tel:${errand.buyerPhone}`} className="flex items-center gap-1 text-sm bg-slate-900 text-white px-3 py-1.5 rounded-full hover:bg-slate-800 transition-colors">
+                    <PhoneCall className="w-4 h-4" /> Call Buyer
+                  </a>
+                </div>
+                <p className="text-sm text-slate-500 mb-4">Send pictures of the item to the buyer below. They must approve before you can start transit.</p>
+                <ChatBox errandId={errand.id} />
+              </div>
+            )}
 
             <button 
               onClick={() => updateState('IN_PROGRESS')}
               disabled={updating || errand.state !== 'ITEM_VERIFIED'}
-              className={`w-full py-4 rounded-xl font-medium transition-all flex items-center justify-center gap-3 ${
+              className={`w-full py-4 rounded-xl font-medium transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed ${
                 errand.state === 'ITEM_VERIFIED' ? 'bg-nomba-yellow text-nomba-dark hover:brightness-105 shadow-md' 
                 : errand.state === 'ACCEPTED' ? 'bg-slate-100 text-slate-400'
                 : 'bg-green-500 text-white'
@@ -183,7 +205,7 @@ export default function RunnerTracking() {
             <button 
               onClick={() => updateState('DELIVERED')}
               disabled={updating || errand.state !== 'IN_PROGRESS'}
-              className={`w-full py-4 rounded-xl font-medium transition-all flex items-center justify-center gap-3 ${
+              className={`w-full py-4 rounded-xl font-medium transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed ${
                 errand.state === 'IN_PROGRESS' ? 'bg-nomba-dark text-nomba-yellow hover:bg-black shadow-md' 
                 : errand.state === 'DELIVERED' ? 'bg-green-500 text-white'
                 : 'bg-slate-100 text-slate-400'

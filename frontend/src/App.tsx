@@ -9,6 +9,7 @@ import RunnerSignup from "./pages/RunnerSignup";
 import RunnerLogin from "./pages/RunnerLogin";
 import ProfileCompletion from "./pages/ProfileCompletion";
 import RunnerKyc from "./pages/RunnerKyc";
+import RiderFeed from "./pages/RiderFeed";
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
           <Route path="/runner/kyc" element={<RunnerKyc />} />
           <Route path="/runner" element={<RunnerDashboard />} />
           <Route path="/runner/tracking/:id" element={<RunnerTracking />} />
+          <Route path="/rider/feed" element={<RiderFeed />} />
         </Routes>
       </Router>
     </AuthProvider>

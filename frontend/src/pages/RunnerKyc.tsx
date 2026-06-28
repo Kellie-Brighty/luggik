@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 export default function RunnerKyc() {
   const navigate = useNavigate();
-  const { user, refreshKycStatus } = useAuth();
+  const { user, refreshKycStatus, role } = useAuth();
 
   const [kycCompleted, setKycCompleted] = useState(false);
   const [showWidget, setShowWidget] = useState(false); // Added state to control widget visibility
@@ -16,8 +16,12 @@ export default function RunnerKyc() {
   React.useEffect(() => {
     if (!user) {
       navigate('/runner/login');
+      return;
     }
-  }, [user, navigate]);
+    if (role === 'rider') {
+      navigate('/rider/feed');
+    }
+  }, [user, role, navigate]);
 
   // Poll the backend for real-time webhook updates once submitted
   React.useEffect(() => {

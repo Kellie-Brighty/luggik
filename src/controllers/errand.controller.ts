@@ -86,7 +86,7 @@ export const getAvailableErrands = async (req: Request, res: Response): Promise<
 export const acceptErrand = async (req: Request, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
-    const { runnerId, runnerEmail } = req.body;
+    const { runnerId, runnerEmail, runnerCompanyName } = req.body;
 
     if (!runnerId) {
       return res.status(400).json({ error: 'runnerId is required' });
@@ -108,7 +108,7 @@ export const acceptErrand = async (req: Request, res: Response): Promise<any> =>
        errand.runnerEmail = runnerEmail;
     }
 
-    await errandModel.assignRunner(id, runnerId);
+    await errandModel.assignRunner(id, runnerId, runnerCompanyName);
 
     // Trigger Email Notification
     await emailService.sendRunnerAcceptedMails(errand);
@@ -119,6 +119,31 @@ export const acceptErrand = async (req: Request, res: Response): Promise<any> =>
     });
   } catch (error: any) {
     console.error('Error accepting errand:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const startErrand = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const id = req.params.id as string;
+    const { actualRiderName } = req.body;
+
+    if (!actualRiderName) {
+      return res.status(400).json({ error: 'actualRiderName is required' });
+    }
+
+    const errand = await errandModel.getErrand(id);
+    if (!errand) {
+      return res.status(404).json({ error: 'Errand not found' });
+    }
+
+    await errandModel.assignActualRider(id, actualRiderName);
+
+    return res.status(200).json({
+      message: 'Rider assigned to errand successfully'
+    });
+  } catch (error: any) {
+    console.error('Error starting errand:', error);
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 };
@@ -143,6 +168,8 @@ export const updateErrandState = async (req: Request, res: Response): Promise<an
     if (state === 'DELIVERED') {
       console.log(`[Nomba] Releasing Escrow: Transferring funds to Seller (${errand.sellerId}) and Commission to Runner (${errand.runnerId}) for Errand ${id}`);
       await emailService.sendDeliverySuccessMails(errand);
+    } else if (state === 'REJECTED_BY_BUYER') {
+      console.log(`[Nomba] Escrow Refund: Refunding Buyer (${errand.buyerId}) minus Runner base fee for Errand ${id}. Seller (${errand.sellerId}) gets nothing.`);
     }
 
     return res.status(200).json({

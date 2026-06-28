@@ -25,8 +25,10 @@ export default function RunnerLogin() {
       const res = await fetch(`/api/kyc/status/${userCredential.user.uid}`);
       if (res.ok) {
         const data = await res.json();
-        await refreshKycStatus();
-        if (data.kycStatus === 'approved') {
+        await refreshKycStatus(userCredential.user.uid);
+        if (data.role === 'rider') {
+          navigate('/rider/feed');
+        } else if (data.kycStatus === 'approved') {
           navigate('/runner');
         } else {
           navigate('/runner/kyc');
@@ -50,8 +52,10 @@ export default function RunnerLogin() {
       const res = await fetch(`/api/kyc/status/${result.user.uid}`);
       if (res.ok) {
         const data = await res.json();
-        await refreshKycStatus();
-        if (data.kycStatus === 'approved') {
+        await refreshKycStatus(result.user.uid);
+        if (data.role === 'rider') {
+          navigate('/rider/feed');
+        } else if (data.kycStatus === 'approved') {
           navigate('/runner');
         } else {
           navigate('/runner/kyc');

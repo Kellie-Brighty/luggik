@@ -1,12 +1,15 @@
 import { ArrowLeft, Package, MapPin, Loader2, CheckCircle2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
+import { db } from "../firebase"; // Assuming firebase config is exported from here
 
 export default function BuyerDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errandId, setErrandId] = useState<string | null>(null);
+  const [liveErrand, setLiveErrand] = useState<any>(null);
 
   // Form State
   const [itemName, setItemName] = useState("");
@@ -20,6 +23,47 @@ export default function BuyerDashboard() {
 
   const DELIVERY_FEE = 2500;
   const total = Number(priceAmount || 0) + DELIVERY_FEE;
+
+  // Restore active errand from local storage on mount
+  useEffect(() => {
+    const checkActiveErrand = async () => {
+      try {
+        const stored = localStorage.getItem("luggik_buyer_errands");
+        if (stored) {
+          const errandIds: string[] = JSON.parse(stored);
+          // Check from newest to oldest
+          for (let i = errandIds.length - 1; i >= 0; i--) {
+            const id = errandIds[i];
+            const docRef = doc(db, "errands", id);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+              const state = docSnap.data().state;
+              // If it's an ongoing errand, redirect to tracking
+              if (state !== 'DELIVERED' && state !== 'REJECTED_BY_BUYER') {
+                navigate(`/buyer/tracking/${id}`);
+                return;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Failed to restore errand from local storage", e);
+      }
+    };
+    checkActiveErrand();
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!success || !errandId) return;
+    
+    const unsubscribe = onSnapshot(doc(db, "errands", errandId), (docSnap) => {
+      if (docSnap.exists()) {
+        setLiveErrand(docSnap.data());
+      }
+    });
+
+    return () => unsubscribe();
+  }, [success, errandId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,8 +99,20 @@ export default function BuyerDashboard() {
       
       if (!response.ok) throw new Error(data.error || "Failed to create errand");
 
-      setErrandId(data.errandId);
+      const newId = data.errandId;
+      setErrandId(newId);
       setSuccess(true);
+
+      // Save to local storage
+      try {
+        const stored = localStorage.getItem("luggik_buyer_errands");
+        const errandIds = stored ? JSON.parse(stored) : [];
+        errandIds.push(newId);
+        localStorage.setItem("luggik_buyer_errands", JSON.stringify(errandIds));
+      } catch (e) {
+        console.error("Failed to save errand to local storage", e);
+      }
+
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -75,6 +131,39 @@ export default function BuyerDashboard() {
           <p className="text-slate-600 mb-6">
             We have secured ₦{total.toLocaleString()} and notified the vendor. Your runner is being assigned.
           </p>
+
+          {/* Company Assignment Loader / Status */}
+          <div className={`p-4 rounded-xl mb-4 text-sm flex flex-col gap-3 ${liveErrand?.runnerCompanyName ? 'bg-green-50 border border-green-200' : 'bg-nomba-light/30 border border-nomba-yellow/20 text-slate-700'}`}>
+            {!liveErrand?.runnerCompanyName ? (
+              <div className="flex items-center gap-3 justify-center">
+                <Loader2 className="w-5 h-5 text-nomba-dark animate-spin" />
+                <span>Assigning a verified logistics company near you...</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 justify-center text-green-700 font-medium">
+                <CheckCircle2 className="w-5 h-5" />
+                <span>Accepted by {liveErrand.runnerCompanyName}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Rider Assignment Loader / Status */}
+          {liveErrand?.runnerCompanyName && (
+            <div className={`p-4 rounded-xl mb-6 text-sm flex flex-col gap-3 ${liveErrand?.actualRiderName ? 'bg-green-50 border border-green-200' : 'bg-nomba-light/30 border border-nomba-yellow/20 text-slate-700'}`}>
+              {!liveErrand?.actualRiderName ? (
+                <div className="flex items-center gap-3 justify-center">
+                  <Loader2 className="w-5 h-5 text-nomba-dark animate-spin" />
+                  <span>Assigning an available rider...</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 justify-center text-green-700 font-medium">
+                  <CheckCircle2 className="w-5 h-5" />
+                  <span>Rider Assigned: {liveErrand.actualRiderName}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="bg-slate-50 p-4 rounded-xl mb-6">
             <p className="text-sm font-mono text-slate-500">Tracking ID:</p>
             <p className="text-lg font-semibold text-slate-900">{errandId}</p>

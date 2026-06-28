@@ -15,6 +15,7 @@ export const registerCompanyProfile = async (req: Request, res: Response): Promi
       email,
       companyName,
       kycStatus: 'pending',
+      role: 'dispatcher',
       createdAt: new Date().toISOString()
     }, { merge: true });
 
@@ -34,16 +35,25 @@ export const getKycStatus = async (req: Request, res: Response): Promise<any> =>
     }
 
     const userRef = db.collection('users').doc(uid as string);
-    const doc = await userRef.get();
+    let doc = await userRef.get();
 
     if (!doc.exists) {
-      return res.status(404).json({ error: 'User profile not found', kycStatus: 'missing' });
+      // Fallback: search by uid field in case doc ID doesn't match the Firebase Auth UID
+      const snapshot = await db.collection('users').where('uid', '==', uid).limit(1).get();
+      if (!snapshot.empty) {
+        doc = snapshot.docs[0] as any;
+      } else {
+        return res.status(404).json({ error: 'User profile not found', kycStatus: 'missing' });
+      }
     }
 
     const data = doc.data();
     return res.status(200).json({
       kycStatus: data?.kycStatus || 'pending',
-      companyName: data?.companyName || ''
+      companyName: data?.companyName || '',
+      role: data?.role || 'dispatcher',
+      companyId: data?.companyId || null,
+      name: data?.name || ''
     });
   } catch (error) {
     console.error('Error in getKycStatus:', error);

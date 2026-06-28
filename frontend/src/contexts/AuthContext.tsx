@@ -7,14 +7,20 @@ interface AuthContextType {
   user: User | null;
   kycStatus: string | null;
   companyName: string | null;
+  role: string | null;
+  companyId: string | null;
+  userName: string | null;
   loading: boolean;
-  refreshKycStatus: () => Promise<void>;
+  refreshKycStatus: (overrideUid?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   kycStatus: null,
   companyName: null,
+  role: null,
+  companyId: null,
+  userName: null,
   loading: true,
   refreshKycStatus: async () => {},
 });
@@ -25,6 +31,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [kycStatus, setKycStatus] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchKycStatus = async (uid: string) => {
@@ -34,9 +43,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const data = await res.json();
         setKycStatus(data.kycStatus);
         setCompanyName(data.companyName);
+        setRole(data.role);
+        setCompanyId(data.companyId);
+        setUserName(data.name || auth.currentUser?.displayName || null);
       } else if (res.status === 404) {
         setKycStatus('missing');
         setCompanyName('');
+        setRole(null);
+        setCompanyId(null);
+        setUserName(null);
       }
     } catch (e) {
       console.error("Failed to fetch KYC status", e);
@@ -46,11 +61,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
-      if (currentUser) {
+      if (currentUser && !currentUser.isAnonymous) {
         await fetchKycStatus(currentUser.uid);
       } else {
         setKycStatus(null);
         setCompanyName(null);
+        setRole(null);
+        setCompanyId(null);
+        setUserName(null);
       }
       setLoading(false);
     });
@@ -58,9 +76,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return unsubscribe;
   }, []);
 
-  const refreshKycStatus = async () => {
-    if (user) {
-      await fetchKycStatus(user.uid);
+  const refreshKycStatus = async (overrideUid?: string) => {
+    const targetUid = overrideUid || user?.uid;
+    if (targetUid) {
+      await fetchKycStatus(targetUid);
     }
   };
 
@@ -78,7 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   return (
-    <AuthContext.Provider value={{ user, kycStatus, companyName, loading, refreshKycStatus }}>
+    <AuthContext.Provider value={{ user, kycStatus, companyName, role, companyId, userName, loading, refreshKycStatus }}>
       {children}
     </AuthContext.Provider>
   );

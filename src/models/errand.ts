@@ -4,6 +4,8 @@ import { FieldValue } from 'firebase-admin/firestore';
 export type ErrandState = 
   | 'CREATED'          // Errand is created, funds are locked in Nomba
   | 'ACCEPTED'         // Runner accepts the errand
+  | 'PENDING_VERIFICATION' // Runner is at vendor, waiting for buyer approval via chat
+  | 'REJECTED_BY_BUYER'    // Buyer rejects the item, errand cancelled, partial refund
   | 'ITEM_VERIFIED'    // Runner physically verifies the item at seller's shop
   | 'IN_PROGRESS'      // Runner is moving to the buyer
   | 'DELIVERED'        // Buyer receives the item, Nomba funds released
@@ -41,6 +43,8 @@ export interface Errand {
   buyerEmail?: string;
   sellerEmail?: string;
   runnerEmail?: string;
+  runnerCompanyName?: string;
+  actualRiderName?: string;
   metadata?: ErrandMetadata;
   state: ErrandState;
   nombaTransactionRef?: string;
@@ -83,10 +87,18 @@ export class ErrandModel {
     });
   }
 
-  async assignRunner(id: string, runnerId: string): Promise<void> {
+  async assignRunner(id: string, runnerId: string, companyName?: string): Promise<void> {
     await this.collection.doc(id).update({
       runnerId: runnerId,
+      ...(companyName && { runnerCompanyName: companyName }),
       state: 'ACCEPTED',
+      updatedAt: FieldValue.serverTimestamp()
+    });
+  }
+
+  async assignActualRider(id: string, riderName: string): Promise<void> {
+    await this.collection.doc(id).update({
+      actualRiderName: riderName,
       updatedAt: FieldValue.serverTimestamp()
     });
   }
