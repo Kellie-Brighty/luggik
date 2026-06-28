@@ -3,6 +3,7 @@ import { errandModel, ErrandState, Errand } from '../models/errand.js';
 import nombaService from '../services/nomba.service.js';
 import { emailService } from '../services/email.service.js';
 import { db } from '../config/firebase.js';
+import { PricingService, PricingSettings } from '../services/pricing.service.js';
 
 export const createErrand = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -195,5 +196,50 @@ export const updateErrandState = async (req: Request, res: Response): Promise<an
   } catch (error: any) {
     console.error('Error updating errand state:', error);
     return res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const getQuotes = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { pickupLocation, dropoffLocation } = req.body;
+
+    if (!pickupLocation || !pickupLocation.latitude || !pickupLocation.longitude || !dropoffLocation || !dropoffLocation.latitude || !dropoffLocation.longitude) {
+      res.status(400).json({ error: 'Valid pickup and dropoff locations with coordinates are required.' });
+      return;
+    }
+
+    // Fetch all active logistics companies (dispatchers)
+    const snapshot = await db.collection('users').where('role', '==', 'dispatcher').get();
+    
+    const quotes: any[] = [];
+
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.pricingSettings) {
+        const quote = PricingService.generateQuote(
+          { latitude: pickupLocation.latitude, longitude: pickupLocation.longitude },
+          { latitude: dropoffLocation.latitude, longitude: dropoffLocation.longitude },
+          data.pricingSettings as PricingSettings
+        );
+
+        if (quote) {
+          quotes.push({
+            companyId: doc.id,
+            companyName: data.companyName || data.name || 'Logistics Company',
+            baseAddress: data.pricingSettings.baseAddress,
+            priceAmount: quote.price,
+            distanceKm: quote.distanceKm
+          });
+        }
+      }
+    });
+
+    // Sort by price ascending
+    quotes.sort((a, b) => a.priceAmount - b.priceAmount);
+
+    res.status(200).json({ quotes });
+  } catch (error: any) {
+    console.error('Error generating quotes:', error);
+    res.status(500).json({ error: error.message });
   }
 };

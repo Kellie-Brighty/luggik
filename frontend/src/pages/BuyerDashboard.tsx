@@ -86,33 +86,69 @@ export default function BuyerDashboard() {
           itemName,
           priceAmount: Number(priceAmount),
           currency: "NGN",
-          deliveryFee: DELIVERY_FEE,
-          buyerPhone,
-          sellerPhone: vendorPhone,
-          pickupLocation: { address: pickupAddress },
-          dropoffLocation: { address: dropoffAddress },
-          metadata: {}
+          pickupLocation: { latitude: pickupCoords.lat, longitude: pickupCoords.lng },
+          dropoffLocation: { latitude: dropoffCoords.lat, longitude: dropoffCoords.lng }
         })
       });
 
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to fetch quotes");
+      }
+
+      const data = await res.json();
+      setQuotes(data.quotes || []);
+      setSelectedQuote(null); // Reset selection
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setFetchingQuotes(false);
+    }
+  };
+
+  const handlePayAndCreate = async () => {
+    if (!selectedQuote) return;
+
+    setLoading(true);
+    try {
+      // Create errand with the selected quote details
+      const payload = {
+        buyerId: `anon-${Date.now()}`, // Anonymous for now
+        sellerId: `vendor-${Date.now()}`,
+        itemName,
+        priceAmount: itemPriceNum,
+        deliveryFee: deliveryFeeNum,
+        currency: 'NGN',
+        pickupLocation: {
+          address: pickupAddress,
+          latitude: pickupCoords!.lat,
+          longitude: pickupCoords!.lng
+        },
+        dropoffLocation: {
+          address: dropoffAddress,
+          latitude: dropoffCoords!.lat,
+          longitude: dropoffCoords!.lng
+        },
+        buyerPhone,
+        sellerPhone: vendorPhone,
+        buyerEmail,
+        sellerEmail: vendorEmail,
+        runnerId: selectedQuote.companyId,
+        runnerCompanyName: selectedQuote.companyName,
+      };
+
+      const response = await fetch("/api/errands", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
       const data = await response.json();
-      
       if (!response.ok) throw new Error(data.error || "Failed to create errand");
 
       const newId = data.errandId;
       setErrandId(newId);
       setSuccess(true);
-
-      // Save to local storage
-      try {
-        const stored = localStorage.getItem("luggik_buyer_errands");
-        const errandIds = stored ? JSON.parse(stored) : [];
-        errandIds.push(newId);
-        localStorage.setItem("luggik_buyer_errands", JSON.stringify(errandIds));
-      } catch (e) {
-        console.error("Failed to save errand to local storage", e);
-      }
-
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -129,40 +165,23 @@ export default function BuyerDashboard() {
           </div>
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Escrow Locked!</h2>
           <p className="text-slate-600 mb-6">
-            We have secured ₦{total.toLocaleString()} and notified the vendor. Your runner is being assigned.
+            We have secured ₦{total.toLocaleString()} and notified the vendor. {liveErrand?.runnerCompanyName} has been assigned.
           </p>
 
-          {/* Company Assignment Loader / Status */}
-          <div className={`p-4 rounded-xl mb-4 text-sm flex flex-col gap-3 ${liveErrand?.runnerCompanyName ? 'bg-green-50 border border-green-200' : 'bg-nomba-light/30 border border-nomba-yellow/20 text-slate-700'}`}>
-            {!liveErrand?.runnerCompanyName ? (
+          {/* Rider Assignment Loader / Status */}
+          <div className={`p-4 rounded-xl mb-6 text-sm flex flex-col gap-3 ${liveErrand?.actualRiderName ? 'bg-green-50 border border-green-200' : 'bg-nomba-light/30 border border-nomba-yellow/20 text-slate-700'}`}>
+            {!liveErrand?.actualRiderName ? (
               <div className="flex items-center gap-3 justify-center">
                 <Loader2 className="w-5 h-5 text-nomba-dark animate-spin" />
-                <span>Assigning a verified logistics company near you...</span>
+                <span>Assigning an available rider...</span>
               </div>
             ) : (
               <div className="flex items-center gap-3 justify-center text-green-700 font-medium">
                 <CheckCircle2 className="w-5 h-5" />
-                <span>Accepted by {liveErrand.runnerCompanyName}</span>
+                <span>Rider Assigned: {liveErrand.actualRiderName}</span>
               </div>
             )}
           </div>
-
-          {/* Rider Assignment Loader / Status */}
-          {liveErrand?.runnerCompanyName && (
-            <div className={`p-4 rounded-xl mb-6 text-sm flex flex-col gap-3 ${liveErrand?.actualRiderName ? 'bg-green-50 border border-green-200' : 'bg-nomba-light/30 border border-nomba-yellow/20 text-slate-700'}`}>
-              {!liveErrand?.actualRiderName ? (
-                <div className="flex items-center gap-3 justify-center">
-                  <Loader2 className="w-5 h-5 text-nomba-dark animate-spin" />
-                  <span>Assigning an available rider...</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3 justify-center text-green-700 font-medium">
-                  <CheckCircle2 className="w-5 h-5" />
-                  <span>Rider Assigned: {liveErrand.actualRiderName}</span>
-                </div>
-              )}
-            </div>
-          )}
 
           <div className="bg-slate-50 p-4 rounded-xl mb-6">
             <p className="text-sm font-mono text-slate-500">Tracking ID:</p>
@@ -180,7 +199,6 @@ export default function BuyerDashboard() {
     <div className="min-h-screen bg-slate-50 font-sans p-6">
       <div className="max-w-3xl mx-auto">
         
-        {/* Header */}
         <header className="flex items-center gap-4 mb-8">
           <Link to="/" className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500">
             <ArrowLeft className="w-6 h-6" />
@@ -188,7 +206,6 @@ export default function BuyerDashboard() {
           <h1 className="text-2xl font-bold text-slate-900">Start an Errand</h1>
         </header>
 
-        {/* Form Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-12">
           <div className="p-6 border-b border-slate-100 bg-slate-50/50">
             <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
@@ -198,7 +215,7 @@ export default function BuyerDashboard() {
             <p className="text-slate-500 text-sm mt-1">Tell us what you are buying, who you are buying from, and where it's going.</p>
           </div>
           
-          <form onSubmit={handleSubmit} className="p-6 space-y-8">
+          <form onSubmit={handleGetQuotes} className="p-6 space-y-8">
             
             {/* SECTION: Item Details */}
             <div className="space-y-4">
@@ -232,7 +249,15 @@ export default function BuyerDashboard() {
                 <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1">
                   <MapPin className="w-4 h-4 text-slate-400" /> Your Address (Delivery Location)
                 </label>
-                <input required value={dropoffAddress} onChange={e => setDropoffAddress(e.target.value)} type="text" placeholder="45 Home Avenue, Lagos" className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-nomba-yellow focus:border-nomba-yellow outline-none transition-all" />
+                {!isLoaded ? (
+                  <div className="p-3 border border-slate-300 rounded-xl flex items-center gap-2 text-slate-500">
+                    <Loader2 className="w-4 h-4 animate-spin" /> Loading Maps...
+                  </div>
+                ) : (
+                  <Autocomplete onLoad={(inst) => setDropoffAutocomplete(inst)} onPlaceChanged={onDropoffPlaceChanged}>
+                    <input required value={dropoffAddress} onChange={e => setDropoffAddress(e.target.value)} type="text" placeholder="Start typing address..." className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-nomba-yellow focus:border-nomba-yellow outline-none transition-all" />
+                  </Autocomplete>
+                )}
               </div>
             </div>
 
@@ -253,24 +278,76 @@ export default function BuyerDashboard() {
                 <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1">
                   <MapPin className="w-4 h-4 text-slate-400" /> Vendor Address (Pickup Location)
                 </label>
-                <input required value={pickupAddress} onChange={e => setPickupAddress(e.target.value)} type="text" placeholder="123 Market Street, Lagos" className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-nomba-yellow focus:border-nomba-yellow outline-none transition-all" />
+                {!isLoaded ? (
+                  <div className="p-3 border border-slate-300 rounded-xl flex items-center gap-2 text-slate-500">
+                    <Loader2 className="w-4 h-4 animate-spin" /> Loading Maps...
+                  </div>
+                ) : (
+                  <Autocomplete onLoad={(inst) => setPickupAutocomplete(inst)} onPlaceChanged={onPickupPlaceChanged}>
+                    <input required value={pickupAddress} onChange={e => setPickupAddress(e.target.value)} type="text" placeholder="Start typing address..." className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-nomba-yellow focus:border-nomba-yellow outline-none transition-all" />
+                  </Autocomplete>
+                )}
               </div>
             </div>
 
+            {/* SECTION: Quotes */}
             <div className="pt-6 border-t border-slate-100">
-              <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-6">
-                <div className="text-center md:text-left">
-                  <p className="text-slate-600">Total + Delivery</p>
-                  <p className="text-3xl font-bold text-slate-900">₦{total.toLocaleString()}</p>
-                </div>
-                <button type="submit" disabled={loading} className="w-full md:w-auto bg-nomba-yellow text-nomba-dark px-10 py-4 rounded-xl font-semibold text-lg hover:brightness-105 transition-all shadow-md hover:shadow-nomba-yellow/25 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                  {loading && <Loader2 className="w-5 h-5 animate-spin" />}
-                  Pay & Lock Escrow
+              {!quotes.length ? (
+                <button type="submit" disabled={fetchingQuotes || !pickupCoords || !dropoffCoords} className="w-full bg-slate-900 text-white px-10 py-4 rounded-xl font-semibold text-lg hover:bg-black transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                  {fetchingQuotes && <Loader2 className="w-5 h-5 animate-spin" />}
+                  {fetchingQuotes ? "Calculating Distances..." : "Get Delivery Quotes"}
                 </button>
-              </div>
-              <p className="text-xs text-center text-slate-500 flex items-center justify-center gap-1">
-                🔒 Secured by Nomba Trust Engine
-              </p>
+              ) : (
+                <div className="space-y-4">
+                  <h3 className="font-bold text-slate-900 mb-4">Available Delivery Partners</h3>
+                  <div className="space-y-3">
+                    {quotes.map((q, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setSelectedQuote(q)}
+                        className={`w-full p-4 rounded-xl border text-left flex items-center justify-between transition-all ${selectedQuote?.companyId === q.companyId ? 'border-nomba-dark bg-nomba-dark/5 ring-1 ring-nomba-dark' : 'border-slate-200 hover:border-slate-300 bg-white'}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center shrink-0">
+                            <Building2 className="w-5 h-5 text-slate-500" />
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900">{q.companyName}</p>
+                            <p className="text-xs text-slate-500">{q.distanceKm} km total routing</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-nomba-dark text-lg">₦{q.priceAmount.toLocaleString()}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {selectedQuote && (
+                    <div className="mt-8 pt-6 border-t border-slate-200">
+                      <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-6">
+                        <div className="text-center md:text-left">
+                          <p className="text-slate-600">Total (Item + Delivery)</p>
+                          <p className="text-3xl font-bold text-slate-900">₦{total.toLocaleString()}</p>
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={handlePayAndCreate}
+                          disabled={loading} 
+                          className="w-full md:w-auto bg-nomba-yellow text-nomba-dark px-10 py-4 rounded-xl font-semibold text-lg hover:brightness-105 transition-all shadow-md hover:shadow-nomba-yellow/25 disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {loading && <Loader2 className="w-5 h-5 animate-spin" />}
+                          Pay & Lock Escrow
+                        </button>
+                      </div>
+                      <p className="text-xs text-center text-slate-500 flex items-center justify-center gap-1">
+                        🔒 Secured by Nomba Trust Engine
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </form>
         </div>

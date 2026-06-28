@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@react-google-maps/api": "^2.20.8",
     "dojah-kyc-sdk-react": "^0.0.6",
     "firebase": "^12.15.0",
     "lucide-react": "^1.21.0",

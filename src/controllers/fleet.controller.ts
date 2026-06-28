@@ -114,3 +114,57 @@ export const updateRider = async (req: Request, res: Response): Promise<void> =>
     res.status(500).json({ error: error.message });
   }
 };
+
+export const updateSettings = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { companyId, baseAddress, baseLatitude, baseLongitude, baseFare, baseDistance, perKmRate, maxRadius } = req.body;
+
+    if (!companyId) {
+      res.status(400).json({ error: 'Missing companyId' });
+      return;
+    }
+
+    // Prepare updates
+    const updates: any = {
+      pricingSettings: {
+        baseAddress,
+        baseLatitude,
+        baseLongitude,
+        baseFare,
+        baseDistance,
+        perKmRate,
+        maxRadius
+      }
+    };
+
+    await db.collection('users').doc(companyId).set(updates, { merge: true });
+
+    res.status(200).json({ message: 'Pricing settings updated successfully' });
+  } catch (error: any) {
+    console.error('Error updating settings:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getSettings = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { companyId } = req.query;
+
+    if (!companyId) {
+      res.status(400).json({ error: 'Missing companyId' });
+      return;
+    }
+
+    const doc = await db.collection('users').doc(companyId as string).get();
+    if (!doc.exists) {
+      res.status(404).json({ error: 'Company not found' });
+      return;
+    }
+
+    const data = doc.data();
+    res.status(200).json({ pricingSettings: data?.pricingSettings || null });
+  } catch (error: any) {
+    console.error('Error fetching settings:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
