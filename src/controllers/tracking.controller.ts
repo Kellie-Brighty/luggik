@@ -22,6 +22,8 @@ export const updateLocation = async (req: Request, res: Response): Promise<any> 
 
     await trackingModel.updateLocation(errandId, latitude, longitude);
 
+    console.log(`[GPS] Received location ping for Errand ${errandId}: [Lat: ${latitude}, Lng: ${longitude}]`);
+
     return res.status(200).json({ message: 'Location updated successfully' });
   } catch (error: any) {
     console.error('Error updating location:', error);

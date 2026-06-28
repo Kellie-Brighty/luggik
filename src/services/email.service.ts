@@ -74,6 +74,13 @@ class EmailService {
     if (errand.sellerEmail) await this.sendMail(errand.sellerEmail, vendorSubject, vendorText);
     if (errand.runnerEmail) await this.sendMail(errand.runnerEmail, runnerSubject, runnerText);
   }
+
+  async sendKycApprovalMail(email: string, companyName: string) {
+    const subject = `Welcome to Luggik, ${companyName}! Your KYC is Approved 🎉`;
+    const text = `Hi ${companyName},\n\nCongratulations! Your KYC verification was successful and your logistics company is now fully approved on the Luggik platform.\n\nYou can now start accepting errands and earning money safely with Luggik Escrow & Trust.\n\nWelcome aboard!\n\nBest,\nThe Luggik Team`;
+    
+    await this.sendMail(email, subject, text);
+  }
 }
 
 export const emailService = new EmailService();

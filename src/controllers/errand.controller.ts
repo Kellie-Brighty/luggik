@@ -73,6 +73,16 @@ export const getErrand = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
+export const getAvailableErrands = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const errands = await errandModel.getAvailableErrands();
+    return res.status(200).json({ errands });
+  } catch (error: any) {
+    console.error('Error fetching available errands:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
 export const acceptErrand = async (req: Request, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;

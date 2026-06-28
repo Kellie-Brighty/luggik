@@ -71,6 +71,11 @@ export class ErrandModel {
     return doc.data() as Errand;
   }
 
+  async getAvailableErrands(): Promise<Errand[]> {
+    const snapshot = await this.collection.where('state', '==', 'CREATED').orderBy('createdAt', 'desc').get();
+    return snapshot.docs.map(doc => doc.data() as Errand);
+  }
+
   async updateErrandState(id: string, newState: ErrandState): Promise<void> {
     await this.collection.doc(id).update({
       state: newState,
