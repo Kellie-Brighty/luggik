@@ -19,7 +19,7 @@ class EmailService {
     return this.resend;
   }
 
-  private async sendMail(to: string, subject: string, text: string) {
+  private async sendMail(to: string, subject: string, text: string, html?: string) {
     const client = this.getResendClient();
     if (!client) {
       console.warn('Resend service not initialized. Cannot send email to:', to);
@@ -32,6 +32,7 @@ class EmailService {
         to, // Note: If using a free Resend account without a verified domain, you can ONLY send emails to the email address registered with your Resend account.
         subject,
         text,
+        ...(html && { html }),
       });
 
       console.log(`[Resend Email Sent] To: ${to} | Subject: ${subject} | ID: ${data.data?.id}`);
@@ -58,6 +59,52 @@ class EmailService {
 
     if (errand.buyerEmail) await this.sendMail(errand.buyerEmail, subject, buyerText);
     if (errand.sellerEmail) await this.sendMail(errand.sellerEmail, subject, vendorText);
+  }
+
+  async sendRiderDispatchedMail(errand: Errand, plateNumber: string, imageUrl: string) {
+    const subject = `Rider Dispatched! Details for '${errand.itemName}'`;
+    
+    // Fallback Text Version
+    let text = `Hi Vendor,\n\n`;
+    text += `The rider has started the errand and is currently en route to your shop to verify and pick up '${errand.itemName}'.\n\n`;
+    text += `Please verify the rider before handing over the item.\n\n`;
+    text += `--- Rider Details ---\n`;
+    text += `Logistics Company: ${errand.runnerCompanyName || 'Unknown'}\n`;
+    text += `Rider Name: ${errand.actualRiderName || 'Unknown'}\n`;
+    if (plateNumber) text += `Vehicle Plate Number: ${plateNumber}\n`;
+    if (imageUrl) text += `Rider Photo: ${imageUrl}\n`;
+    text += `---------------------\n\n`;
+    text += `Thanks,\nThe Luggik Team`;
+
+    // Rich HTML Version
+    let html = `
+      <div style="font-family: sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1a1a1a;">Rider Dispatched!</h2>
+        <p>Hi Vendor,</p>
+        <p>The rider has started the errand and is currently en route to your shop to verify and pick up <strong>'${errand.itemName}'</strong>.</p>
+        <p style="color: #b91c1c; font-weight: bold;">Please verify the rider before handing over the item.</p>
+        
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0;">
+          <h3 style="margin-top: 0; color: #0f172a; border-bottom: 2px solid #cbd5e1; padding-bottom: 10px;">Rider Details</h3>
+          <p><strong>Logistics Company:</strong> ${errand.runnerCompanyName || 'Unknown'}</p>
+          <p><strong>Rider Name:</strong> ${errand.actualRiderName || 'Unknown'}</p>
+          ${plateNumber ? `<p><strong>Vehicle Plate Number:</strong> ${plateNumber}</p>` : ''}
+          
+          ${imageUrl ? `
+          <div style="margin-top: 16px;">
+            <p style="margin-bottom: 8px;"><strong>Rider Photo:</strong></p>
+            <img src="${imageUrl}" alt="Rider Photo" style="max-width: 150px; max-height: 150px; border-radius: 8px; border: 1px solid #cbd5e1; object-fit: cover;" />
+          </div>
+          ` : ''}
+        </div>
+        
+        <p>Thanks,<br/><strong>The Luggik Team</strong></p>
+      </div>
+    `;
+
+    if (errand.sellerEmail) {
+      await this.sendMail(errand.sellerEmail, subject, text, html);
+    }
   }
 
   async sendDeliverySuccessMails(errand: Errand) {

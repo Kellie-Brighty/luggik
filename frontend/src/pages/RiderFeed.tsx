@@ -23,7 +23,7 @@ export default function RiderFeed() {
   const [error, setError] = useState<string | null>(null);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { user, role, companyId, userName } = useAuth();
+  const { user, role, companyId } = useAuth();
 
   const handleLogout = async () => {
     try {
@@ -83,7 +83,7 @@ export default function RiderFeed() {
       const response = await fetch(`/api/errands/${errandId}/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ actualRiderName: userName || "Unknown Rider" })
+        body: JSON.stringify({ actualRiderId: user?.uid })
       });
       
       if (!response.ok) {

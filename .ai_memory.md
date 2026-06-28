@@ -115,3 +115,11 @@ This unique flow prevents disputes by ensuring buyer satisfaction *before* the i
 ### Update: 6/28/2026, 8:58:15 PM
 - Implemented local storage persistence in `BuyerDashboard.tsx` to save the `errandId` of newly created errands.
 - Added a `useEffect` to `BuyerDashboard.tsx` that fires on mount, checks local storage for `luggik_buyer_errands`, fetches the state of those errands from Firestore, and automatically redirects the user to the `BuyerTracking` page if an ongoing/active errand is found.
+
+### Update: 6/28/2026, 9:24:02 PM
+- Updated Fleet Controller (`createRider`, `updateRider`) to save `plateNumber` and `imageUrl`.
+- Updated Errand Schema to include `actualRiderPlateNumber` and `actualRiderImageUrl`.
+- Updated Errand Controller (`startErrand`) to query `users` collection to fetch full rider details and trigger a detailed vendor email.
+- Added `sendRiderDispatchedMail` to `email.service.ts` to notify vendors with Rider Photo and Plate Number.
+- Added Plate Number and Image Upload UI to the Create/Edit Rider modals in `RunnerDashboard.tsx`.
+- Updated `handleAccept` in `RiderFeed.tsx` to send `actualRiderId`.

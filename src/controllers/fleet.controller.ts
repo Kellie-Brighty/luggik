@@ -4,7 +4,7 @@ import { db } from '../config/firebase.js';
 
 export const createRider = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password, companyId, name } = req.body;
+    const { email, password, companyId, name, plateNumber, imageUrl } = req.body;
 
     if (!email || !password || !companyId || !name) {
       res.status(400).json({ error: 'Missing required fields' });
@@ -24,6 +24,8 @@ export const createRider = async (req: Request, res: Response): Promise<void> =>
       name,
       role: 'rider',
       companyId,
+      plateNumber: plateNumber || '',
+      imageUrl: imageUrl || '',
       createdAt: new Date().toISOString(),
     });
 
@@ -61,7 +63,7 @@ export const getRiders = async (req: Request, res: Response): Promise<void> => {
 export const updateRider = async (req: Request, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
-    const { name, password, companyId } = req.body;
+    const { name, password, companyId, plateNumber, imageUrl } = req.body;
 
     if (!id) {
       res.status(400).json({ error: 'Missing rider ID' });
@@ -82,6 +84,14 @@ export const updateRider = async (req: Request, res: Response): Promise<void> =>
     if (name) {
       authUpdates.displayName = name;
       dbUpdates.name = name;
+    }
+
+    if (plateNumber !== undefined) {
+      dbUpdates.plateNumber = plateNumber;
+    }
+
+    if (imageUrl !== undefined) {
+      dbUpdates.imageUrl = imageUrl;
     }
 
     if (password) {

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { errandModel, ErrandState, Errand } from '../models/errand.js';
 import nombaService from '../services/nomba.service.js';
 import { emailService } from '../services/email.service.js';
+import { db } from '../config/firebase.js';
 
 export const createErrand = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -126,10 +127,10 @@ export const acceptErrand = async (req: Request, res: Response): Promise<any> =>
 export const startErrand = async (req: Request, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;
-    const { actualRiderName } = req.body;
+    const { actualRiderId } = req.body;
 
-    if (!actualRiderName) {
-      return res.status(400).json({ error: 'actualRiderName is required' });
+    if (!actualRiderId) {
+      return res.status(400).json({ error: 'actualRiderId is required' });
     }
 
     const errand = await errandModel.getErrand(id);
@@ -137,7 +138,22 @@ export const startErrand = async (req: Request, res: Response): Promise<any> => 
       return res.status(404).json({ error: 'Errand not found' });
     }
 
-    await errandModel.assignActualRider(id, actualRiderName);
+    // Fetch Rider Info
+    const riderDoc = await db.collection('users').doc(actualRiderId).get();
+    if (!riderDoc.exists) {
+      return res.status(404).json({ error: 'Rider not found' });
+    }
+    const riderData = riderDoc.data();
+    const actualRiderName = riderData?.name || 'Unknown Rider';
+    const plateNumber = riderData?.plateNumber || '';
+    const imageUrl = riderData?.imageUrl || '';
+
+    await errandModel.assignActualRider(id, actualRiderName, plateNumber, imageUrl);
+
+    const updatedErrand = await errandModel.getErrand(id);
+    if (updatedErrand) {
+      await emailService.sendRiderDispatchedMail(updatedErrand, plateNumber, imageUrl);
+    }
 
     return res.status(200).json({
       message: 'Rider assigned to errand successfully'

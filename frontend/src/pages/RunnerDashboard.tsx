@@ -1,4 +1,4 @@
-import { ArrowLeft, Loader2, AlertCircle, LogOut, Users, PackageSearch, UserPlus, Mail, Lock, Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, LogOut, Users, PackageSearch, UserPlus, Mail, Lock, Eye, EyeOff, CheckCircle2, Car, ImageIcon } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -28,6 +28,8 @@ export default function RunnerDashboard() {
   const [newRiderEmail, setNewRiderEmail] = useState("");
   const [newRiderPassword, setNewRiderPassword] = useState("");
   const [newRiderName, setNewRiderName] = useState("");
+  const [newRiderPlateNumber, setNewRiderPlateNumber] = useState("");
+  const [newRiderImageUrl, setNewRiderImageUrl] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [creatingRider, setCreatingRider] = useState(false);
 
@@ -35,7 +37,11 @@ export default function RunnerDashboard() {
   const [editingRider, setEditingRider] = useState<any | null>(null);
   const [editRiderName, setEditRiderName] = useState("");
   const [editRiderPassword, setEditRiderPassword] = useState("");
+  const [editRiderPlateNumber, setEditRiderPlateNumber] = useState("");
+  const [editRiderImageUrl, setEditRiderImageUrl] = useState("");
   const [updatingRider, setUpdatingRider] = useState(false);
+
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Modal State
   const [modalState, setModalState] = useState<{show: boolean, type: 'success'|'error', title: string, message: string}>({
@@ -141,12 +147,21 @@ export default function RunnerDashboard() {
       const res = await fetch("/api/fleet/riders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newRiderName, email: newRiderEmail, password: newRiderPassword, companyId: user?.uid })
+        body: JSON.stringify({ 
+          name: newRiderName, 
+          email: newRiderEmail, 
+          password: newRiderPassword, 
+          companyId: user?.uid,
+          plateNumber: newRiderPlateNumber,
+          imageUrl: newRiderImageUrl
+        })
       });
       if (res.ok) {
         setNewRiderName("");
         setNewRiderEmail("");
         setNewRiderPassword("");
+        setNewRiderPlateNumber("");
+        setNewRiderImageUrl("");
         fetchRiders();
         showModal('success', 'Rider Created', 'Rider account has been created successfully.');
       } else {
@@ -171,6 +186,8 @@ export default function RunnerDashboard() {
         body: JSON.stringify({ 
           name: editRiderName, 
           password: editRiderPassword || undefined,
+          plateNumber: editRiderPlateNumber,
+          imageUrl: editRiderImageUrl,
           companyId: user?.uid 
         })
       });
@@ -186,6 +203,55 @@ export default function RunnerDashboard() {
       showModal('error', 'Error', err.message);
     } finally {
       setUpdatingRider(false);
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingImage(true);
+    
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Content = reader.result as string;
+
+        try {
+          const res = await fetch('https://api.hicity.me/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              files: [{ name: file.name, content: base64Content }]
+            }),
+          });
+          
+          if (res.ok) {
+            const data = await res.json();
+            const imageUrl = data.results?.[0]?.url || data.url || data.secure_url || data.data?.url;
+            if (imageUrl) {
+              if (isEdit) setEditRiderImageUrl(imageUrl);
+              else setNewRiderImageUrl(imageUrl);
+            }
+          } else {
+            console.error("Upload failed with status:", res.status);
+          }
+        } catch (error) {
+          console.error("Error uploading image: ", error);
+        } finally {
+          setIsUploadingImage(false);
+        }
+      };
+      
+      reader.onerror = () => {
+        console.error("Error reading file");
+        setIsUploadingImage(false);
+      };
+
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Error processing file: ", error);
+      setIsUploadingImage(false);
     }
   };
 
@@ -350,9 +416,40 @@ export default function RunnerDashboard() {
                     </button>
                   </div>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Vehicle Plate Number (Optional)</label>
+                  <div className="relative">
+                    <Car className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
+                    <input 
+                      type="text" 
+                      value={newRiderPlateNumber}
+                      onChange={(e) => setNewRiderPlateNumber(e.target.value)}
+                      placeholder="ABC-123"
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-nomba-yellow focus:border-nomba-yellow outline-none transition-all"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Rider Photo (Optional)</label>
+                  <div className="relative flex items-center gap-3">
+                    <div className="relative flex-1">
+                      <ImageIcon className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => handleImageUpload(e, false)}
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-nomba-yellow file:text-nomba-dark transition-all cursor-pointer"
+                      />
+                    </div>
+                    {isUploadingImage && <Loader2 className="w-5 h-5 animate-spin text-slate-400" />}
+                    {newRiderImageUrl && !isUploadingImage && (
+                      <img src={newRiderImageUrl} alt="Rider" className="w-12 h-12 object-cover rounded-lg border border-slate-200 shadow-sm" />
+                    )}
+                  </div>
+                </div>
                 <button 
                   type="submit"
-                  disabled={creatingRider || !newRiderEmail || !newRiderPassword}
+                  disabled={creatingRider || !newRiderEmail || !newRiderPassword || isUploadingImage}
                   className="w-full py-3 bg-nomba-dark text-white font-bold rounded-xl disabled:opacity-50 flex items-center justify-center transition-colors"
                 >
                   {creatingRider ? <Loader2 className="w-5 h-5 animate-spin" /> : "Create Rider Account"}
@@ -372,8 +469,12 @@ export default function RunnerDashboard() {
                   {riders.map((r, i) => (
                     <div key={i} className="py-4 flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center">
-                          <Users className="w-5 h-5 text-slate-500" />
+                        <div className="w-10 h-10 bg-slate-100 rounded-full overflow-hidden flex items-center justify-center shrink-0 border border-slate-200">
+                          {r.imageUrl ? (
+                            <img src={r.imageUrl} alt="Rider" className="w-full h-full object-cover" />
+                          ) : (
+                            <Users className="w-5 h-5 text-slate-500" />
+                          )}
                         </div>
                         <div>
                           <p className="font-medium text-slate-900">{r.name ? `${r.name} (${r.email})` : r.email}</p>
@@ -386,6 +487,8 @@ export default function RunnerDashboard() {
                             setEditingRider(r);
                             setEditRiderName(r.name || "");
                             setEditRiderPassword("");
+                            setEditRiderPlateNumber(r.plateNumber || "");
+                            setEditRiderImageUrl(r.imageUrl || "");
                           }}
                           className="text-nomba-dark text-sm font-medium hover:underline"
                         >
@@ -434,6 +537,37 @@ export default function RunnerDashboard() {
                     className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-nomba-dark focus:border-nomba-dark"
                     placeholder="Leave blank to keep current"
                   />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Vehicle Plate Number (Optional)</label>
+                <div className="relative">
+                  <Car className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                  <input
+                    type="text"
+                    value={editRiderPlateNumber}
+                    onChange={(e) => setEditRiderPlateNumber(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-nomba-dark focus:border-nomba-dark"
+                    placeholder="ABC-123"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Rider Photo (Optional)</label>
+                <div className="relative flex items-center gap-3">
+                  <div className="relative flex-1">
+                    <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      onChange={(e) => handleImageUpload(e, true)}
+                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-nomba-dark file:text-white transition-all cursor-pointer"
+                    />
+                  </div>
+                  {isUploadingImage && <Loader2 className="w-5 h-5 animate-spin text-slate-400" />}
+                  {editRiderImageUrl && !isUploadingImage && (
+                    <img src={editRiderImageUrl} alt="Rider" className="w-10 h-10 object-cover rounded-lg border border-slate-200 shadow-sm" />
+                  )}
                 </div>
               </div>
               <div className="flex gap-3 mt-6">

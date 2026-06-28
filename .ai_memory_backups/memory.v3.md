@@ -100,3 +100,8 @@ This unique flow prevents disputes by ensuring buyer satisfaction *before* the i
 - Frontend RiderFeed now passes the exact Rider's Name to the backend when starting the errand.
 - Buyer Dashboard now shows a spinner while assigning logistics company.
 - Buyer Tracking screen now displays 'Logistics Partner: [Company]' and 'Assigned Rider: [Name]' in real-time as they are assigned.
+
+### Update: 6/28/2026, 8:49:23 PM
+- Added `updateRider` method in `fleet.controller.ts` and `PATCH /api/fleet/riders/:id` endpoint in `fleet.routes.ts`.
+- Updated `RunnerDashboard.tsx` to display an "Edit" button next to existing riders.
+- Implemented an inline modal in `RunnerDashboard.tsx` to allow Dispatchers to update the rider's name and optional password.

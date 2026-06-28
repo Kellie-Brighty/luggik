@@ -45,6 +45,8 @@ export interface Errand {
   runnerEmail?: string;
   runnerCompanyName?: string;
   actualRiderName?: string;
+  actualRiderPlateNumber?: string;
+  actualRiderImageUrl?: string;
   metadata?: ErrandMetadata;
   state: ErrandState;
   nombaTransactionRef?: string;
@@ -96,11 +98,15 @@ export class ErrandModel {
     });
   }
 
-  async assignActualRider(id: string, riderName: string): Promise<void> {
-    await this.collection.doc(id).update({
+  async assignActualRider(id: string, riderName: string, plateNumber?: string, imageUrl?: string): Promise<void> {
+    const updates: any = {
       actualRiderName: riderName,
       updatedAt: FieldValue.serverTimestamp()
-    });
+    };
+    if (plateNumber) updates.actualRiderPlateNumber = plateNumber;
+    if (imageUrl) updates.actualRiderImageUrl = imageUrl;
+    
+    await this.collection.doc(id).update(updates);
   }
 }
 
