@@ -10,7 +10,8 @@ export const createErrand = async (req: Request, res: Response): Promise<any> =>
     const { 
       buyerId, sellerId, itemName, priceAmount, currency, 
       deliveryFee, pickupLocation, dropoffLocation, 
-      buyerPhone, sellerPhone, buyerEmail, sellerEmail, metadata 
+      buyerPhone, sellerPhone, buyerEmail, sellerEmail, metadata,
+      runnerId, runnerCompanyName
     } = req.body;
 
     if (!buyerId || !sellerId || !itemName || !priceAmount || !deliveryFee || !pickupLocation || !dropoffLocation || !buyerPhone || !sellerPhone) {
@@ -37,7 +38,9 @@ export const createErrand = async (req: Request, res: Response): Promise<any> =>
       sellerPhone,
       buyerEmail,
       sellerEmail,
-      metadata,
+      metadata: metadata || {},
+      runnerId: runnerId || null,
+      runnerCompanyName: runnerCompanyName || null,
       currency: currency || 'NGN',
       state: 'CREATED',
       nombaTransactionRef: mockTransactionRef
@@ -208,8 +211,8 @@ export const getQuotes = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Fetch all active logistics companies (dispatchers)
-    const snapshot = await db.collection('users').where('role', '==', 'dispatcher').get();
+    // Fetch all companies (filtering in memory to catch those with missing roles)
+    const snapshot = await db.collection('users').get();
     
     const quotes: any[] = [];
 

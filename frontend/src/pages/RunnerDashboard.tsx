@@ -23,7 +23,7 @@ export default function RunnerDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'errands' | 'fleet'>('errands');
+  const [activeTab, setActiveTab] = useState<'errands' | 'fleet' | 'settings'>('errands');
   
   // Rider creation state
   const [newRiderEmail, setNewRiderEmail] = useState("");
@@ -364,7 +364,7 @@ export default function RunnerDashboard() {
               </div>
             ))}
           </div>
-        ) : (
+        ) : activeTab === 'fleet' ? (
           <div className="space-y-6">
             {/* Create Rider Form */}
             <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">

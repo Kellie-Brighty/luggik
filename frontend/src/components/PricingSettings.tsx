@@ -1,9 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { Loader2, Save, MapPin } from 'lucide-react';
-import { useJsApiLoader, Autocomplete } from '@react-google-maps/api';
+import { useJsApiLoader, Autocomplete, GoogleMap, Marker } from '@react-google-maps/api';
 
 const libraries: "places"[] = ["places"];
+const mapContainerStyle = {
+  width: '100%',
+  height: '300px',
+  borderRadius: '0.75rem',
+  marginTop: '1rem',
+};
+
+const defaultCenter = {
+  lat: 6.5244, // Default to Lagos, Nigeria
+  lng: 3.3792
+};
 
 export default function PricingSettings() {
   const { user } = useAuth();
@@ -14,19 +25,26 @@ export default function PricingSettings() {
   const [baseAddress, setBaseAddress] = useState("");
   const [baseLatitude, setBaseLatitude] = useState<number | null>(null);
   const [baseLongitude, setBaseLongitude] = useState<number | null>(null);
-  const [baseFare, setBaseFare] = useState<number>(1500);
+  const [baseFare, setBaseFare] = useState<string>("1,500");
   const [baseDistance, setBaseDistance] = useState<number>(5);
-  const [perKmRate, setPerKmRate] = useState<number>(100);
+  const [perKmRate, setPerKmRate] = useState<string>("100");
   const [maxRadius, setMaxRadius] = useState<number>(30);
   const [message, setMessage] = useState<{type: 'success'|'error', text: string} | null>(null);
 
   const [autocomplete, setAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
+  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "",
     libraries,
   });
+
+  useEffect(() => {
+    if (isLoaded && !geocoderRef.current) {
+      geocoderRef.current = new window.google.maps.Geocoder();
+    }
+  }, [isLoaded]);
 
   useEffect(() => {
     if (!user) return;
@@ -39,9 +57,9 @@ export default function PricingSettings() {
             setBaseAddress(data.pricingSettings.baseAddress || "");
             setBaseLatitude(data.pricingSettings.baseLatitude || null);
             setBaseLongitude(data.pricingSettings.baseLongitude || null);
-            setBaseFare(data.pricingSettings.baseFare || 1500);
+            setBaseFare(data.pricingSettings.baseFare ? data.pricingSettings.baseFare.toLocaleString("en-US") : "1,500");
             setBaseDistance(data.pricingSettings.baseDistance || 5);
-            setPerKmRate(data.pricingSettings.perKmRate || 100);
+            setPerKmRate(data.pricingSettings.perKmRate ? data.pricingSettings.perKmRate.toLocaleString("en-US") : "100");
             setMaxRadius(data.pricingSettings.maxRadius || 30);
           }
         }
@@ -66,8 +84,45 @@ export default function PricingSettings() {
         setBaseLatitude(place.geometry.location.lat());
         setBaseLongitude(place.geometry.location.lng());
       }
-    } else {
-      console.log('Autocomplete is not loaded yet!');
+    }
+  };
+
+  const onMarkerDragEnd = (e: google.maps.MapMouseEvent) => {
+    if (e.latLng) {
+      const lat = e.latLng.lat();
+      const lng = e.latLng.lng();
+      setBaseLatitude(lat);
+      setBaseLongitude(lng);
+
+      // Reverse geocode to get a readable address
+      if (geocoderRef.current) {
+        geocoderRef.current.geocode({ location: { lat, lng } }, (results, status) => {
+          if (status === "OK" && results && results[0]) {
+            setBaseAddress(results[0].formatted_address);
+          } else {
+            setBaseAddress(`Custom Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
+          }
+        });
+      }
+    }
+  };
+
+  const onMapClick = (e: google.maps.MapMouseEvent) => {
+    if (e.latLng) {
+      const lat = e.latLng.lat();
+      const lng = e.latLng.lng();
+      setBaseLatitude(lat);
+      setBaseLongitude(lng);
+
+      if (geocoderRef.current) {
+        geocoderRef.current.geocode({ location: { lat, lng } }, (results, status) => {
+          if (status === "OK" && results && results[0]) {
+            setBaseAddress(results[0].formatted_address);
+          } else {
+            setBaseAddress(`Custom Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
+          }
+        });
+      }
     }
   };
 
@@ -85,9 +140,9 @@ export default function PricingSettings() {
           baseAddress,
           baseLatitude,
           baseLongitude,
-          baseFare: Number(baseFare),
+          baseFare: Number(baseFare.replace(/,/g, "")),
           baseDistance: Number(baseDistance),
-          perKmRate: Number(perKmRate),
+          perKmRate: Number(perKmRate.replace(/,/g, "")),
           maxRadius: Number(maxRadius)
         })
       });
@@ -107,6 +162,8 @@ export default function PricingSettings() {
   if (loading) {
     return <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-nomba-yellow" /></div>;
   }
+
+  const mapCenter = baseLatitude && baseLongitude ? { lat: baseLatitude, lng: baseLongitude } : defaultCenter;
 
   return (
     <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
@@ -146,8 +203,34 @@ export default function PricingSettings() {
               </Autocomplete>
             )}
             <p className="text-xs text-slate-500 mt-2">
-              This location is used as the starting point to calculate distance to pickups.
+              Type an address above, or click/drag the marker on the map below to pinpoint your exact office location.
             </p>
+
+            {isLoaded && (
+              <div className="overflow-hidden border border-slate-200 rounded-xl shadow-sm mt-4">
+                <GoogleMap
+                  mapContainerStyle={mapContainerStyle}
+                  center={mapCenter}
+                  zoom={baseLatitude ? 15 : 12}
+                  onClick={onMapClick}
+                  options={{
+                    disableDefaultUI: false,
+                    zoomControl: true,
+                    streetViewControl: false,
+                    mapTypeControl: false
+                  }}
+                >
+                  {baseLatitude && baseLongitude && (
+                    <Marker
+                      position={{ lat: baseLatitude, lng: baseLongitude }}
+                      draggable={true}
+                      onDragEnd={onMarkerDragEnd}
+                      animation={google.maps.Animation.DROP}
+                    />
+                  )}
+                </GoogleMap>
+              </div>
+            )}
           </div>
         </div>
 
@@ -159,10 +242,13 @@ export default function PricingSettings() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Base Fare (₦)</label>
               <input
-                type="number"
-                min="0"
+                type="text"
+                inputMode="numeric"
                 value={baseFare}
-                onChange={(e) => setBaseFare(Number(e.target.value))}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/\D/g, "");
+                  setBaseFare(raw ? parseInt(raw, 10).toLocaleString("en-US") : "");
+                }}
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-nomba-yellow"
                 required
               />
@@ -182,10 +268,13 @@ export default function PricingSettings() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Rate per extra km (₦)</label>
               <input
-                type="number"
-                min="0"
+                type="text"
+                inputMode="numeric"
                 value={perKmRate}
-                onChange={(e) => setPerKmRate(Number(e.target.value))}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/\D/g, "");
+                  setPerKmRate(raw ? parseInt(raw, 10).toLocaleString("en-US") : "");
+                }}
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-nomba-yellow"
                 required
               />

@@ -53,8 +53,16 @@ export class PricingService {
       pickup.longitude
     );
 
-    // If pickup is outside their max radius, they don't service this errand
-    if (officeToPickup > companySettings.maxRadius) {
+    // Calculate distance from Office to Dropoff
+    const officeToDropoff = this.calculateHaversineDistance(
+      companySettings.baseLatitude,
+      companySettings.baseLongitude,
+      dropoff.latitude,
+      dropoff.longitude
+    );
+
+    // If either pickup or dropoff is outside their max radius, they don't service this errand
+    if (officeToPickup > companySettings.maxRadius || officeToDropoff > companySettings.maxRadius) {
       return null;
     }
 

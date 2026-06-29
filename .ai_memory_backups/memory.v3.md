@@ -105,3 +105,9 @@ This unique flow prevents disputes by ensuring buyer satisfaction *before* the i
 - Added `updateRider` method in `fleet.controller.ts` and `PATCH /api/fleet/riders/:id` endpoint in `fleet.routes.ts`.
 - Updated `RunnerDashboard.tsx` to display an "Edit" button next to existing riders.
 - Implemented an inline modal in `RunnerDashboard.tsx` to allow Dispatchers to update the rider's name and optional password.
+
+### Update: 6/28/2026, 8:53:29 PM
+- Updated `BuyerDashboard.tsx` to listen to the new errand in real-time via `onSnapshot` when successfully created.
+- The success modal now displays an initial "Assigning logistics company..." loader.
+- Once accepted by a dispatcher, the loader swaps to a green checkmark showing the `runnerCompanyName`, and a second loader appears saying "Assigning an available rider...".
+- Once a rider starts the errand, the second loader swaps to a green checkmark showing the `actualRiderName`.

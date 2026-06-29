@@ -1,14 +1,17 @@
-import { ArrowLeft, Navigation, Loader2, Package, CheckSquare, Truck, CheckCheck, PhoneCall } from "lucide-react";
+import { ArrowLeft, Loader2, CheckSquare, Truck, CheckCheck, PhoneCall } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import ChatBox from "../components/ChatBox";
+import { useJsApiLoader, GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api';
+
+const libraries: "places"[] = ["places"];
 
 interface Errand {
   id: string;
   itemName: string;
   state: string;
-  pickupLocation: { address: string };
-  dropoffLocation: { address: string };
+  pickupLocation: { address: string, latitude: number, longitude: number };
+  dropoffLocation: { address: string, latitude: number, longitude: number };
   sellerPhone: string;
   buyerPhone: string;
 }
@@ -20,11 +23,42 @@ export default function RunnerTracking() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [gpsActive, setGpsActive] = useState(false);
+  const [currentPosition, setCurrentPosition] = useState<{lat: number, lng: number} | null>(null);
+  const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
   const watchIdRef = useRef<number | null>(null);
+
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "",
+    libraries,
+  });
+
+  useEffect(() => {
+    if (errand?.pickupLocation?.latitude && errand?.dropoffLocation?.latitude && isLoaded && window.google) {
+      const directionsService = new window.google.maps.DirectionsService();
+      directionsService.route(
+        {
+          origin: { lat: errand.pickupLocation.latitude, lng: errand.pickupLocation.longitude },
+          destination: { lat: errand.dropoffLocation.latitude, lng: errand.dropoffLocation.longitude },
+          travelMode: window.google.maps.TravelMode.DRIVING,
+        },
+        (result, status) => {
+          if (status === window.google.maps.DirectionsStatus.OK) {
+            setDirections(result);
+          }
+        }
+      );
+    }
+  }, [errand?.pickupLocation?.latitude, errand?.dropoffLocation?.latitude, isLoaded]);
 
   useEffect(() => {
     fetchErrand();
     
+    // Stop polling if we reach a terminal state
+    if (errand?.state === 'DELIVERED' || errand?.state === 'REJECTED_BY_BUYER') {
+      return () => { stopGpsTracking(); };
+    }
+
     const interval = setInterval(() => {
       fetchErrand();
     }, 3000);
@@ -33,7 +67,7 @@ export default function RunnerTracking() {
       clearInterval(interval);
       stopGpsTracking();
     };
-  }, [id]);
+  }, [id, errand?.state]);
 
   // When errand state changes to IN_PROGRESS, start tracking
   useEffect(() => {
@@ -84,6 +118,7 @@ export default function RunnerTracking() {
     watchIdRef.current = navigator.geolocation.watchPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
+        setCurrentPosition({ lat: latitude, lng: longitude });
         try {
           await fetch(`/api/tracking/${id}`, {
             method: 'POST',
@@ -138,18 +173,29 @@ export default function RunnerTracking() {
         </header>
 
         {/* Map / Tracking Simulator Placeholder */}
-        <div className="bg-slate-200 w-full h-48 rounded-2xl mb-6 flex flex-col items-center justify-center border border-slate-300 relative overflow-hidden">
-          {gpsActive ? (
-            <>
-              <div className="absolute inset-0 bg-nomba-yellow/10 animate-pulse"></div>
-              <Navigation className="w-10 h-10 text-nomba-dark animate-bounce" />
-              <p className="mt-2 text-sm font-semibold text-nomba-dark bg-white px-3 py-1 rounded-full shadow-sm">Broadcasting GPS Location...</p>
-            </>
+        <div className="w-full h-80 rounded-2xl mb-6 overflow-hidden border border-slate-300 shadow-sm relative">
+          {isLoaded ? (
+            <GoogleMap
+              mapContainerStyle={{ width: '100%', height: '100%' }}
+              center={currentPosition ? currentPosition : errand?.pickupLocation ? { lat: errand.pickupLocation.latitude, lng: errand.pickupLocation.longitude } : { lat: 6.5244, lng: 3.3792 }}
+              zoom={currentPosition ? 15 : 12}
+              options={{ disableDefaultUI: true, zoomControl: true }}
+            >
+              {directions && <DirectionsRenderer directions={directions} options={{ suppressMarkers: false, polylineOptions: { strokeColor: '#f2c94c', strokeWeight: 5 } }} />}
+              {currentPosition && <Marker position={currentPosition} label="🚚" zIndex={999} />}
+            </GoogleMap>
           ) : (
-            <>
-              <Package className="w-10 h-10 text-slate-400" />
-              <p className="mt-2 text-sm font-medium text-slate-500">Map available during transit</p>
-            </>
+            <div className="w-full h-full bg-slate-200 flex flex-col items-center justify-center">
+              <Loader2 className="w-8 h-8 animate-spin text-nomba-yellow mb-2" />
+              <p className="text-slate-500 font-medium">Loading Map...</p>
+            </div>
+          )}
+
+          {gpsActive && (
+            <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-xl shadow-sm border border-slate-200 text-sm font-medium flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              Broadcasting GPS
+            </div>
           )}
         </div>
 

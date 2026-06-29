@@ -1,18 +1,21 @@
-import { ArrowLeft, Navigation, Loader2, Package, CheckSquare, Truck, CheckCheck, MapPin, CheckCircle2, XCircle, CheckCircle } from "lucide-react";
+import { ArrowLeft, Loader2, Package, CheckSquare, Truck, CheckCheck, MapPin, CheckCircle2, XCircle, CheckCircle } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { signInAnonymously, onAuthStateChanged } from "firebase/auth";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import ChatBox from "../components/ChatBox";
+import { useJsApiLoader, GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api';
+
+const libraries: "places"[] = ["places"];
 
 interface Errand {
   id: string;
   itemName: string;
   state: string;
   priceAmount: number;
-  pickupLocation: { address: string };
-  dropoffLocation: { address: string };
+  pickupLocation: { address: string, latitude: number, longitude: number };
+  dropoffLocation: { address: string, latitude: number, longitude: number };
   runnerPhone?: string;
   runnerCompanyName?: string;
   actualRiderName?: string;
@@ -31,6 +34,13 @@ export default function BuyerTracking() {
   const [tracking, setTracking] = useState<TrackingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
+
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "",
+    libraries,
+  });
 
   // Authenticate anonymously so Firestore doesn't reject reads, only if not already logged in
   useEffect(() => {
@@ -42,16 +52,21 @@ export default function BuyerTracking() {
     return () => unsubscribe();
   }, []);
 
-  // Poll for errand state and tracking updates every 3 seconds
+  // Poll for errand state every 3 seconds
   useEffect(() => {
     fetchErrand();
+
+    // Stop polling if we reach a terminal state
+    if (errand?.state === 'DELIVERED' || errand?.state === 'REJECTED_BY_BUYER') {
+      return;
+    }
 
     const interval = setInterval(() => {
       fetchErrand();
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [id]);
+  }, [id, errand?.state]);
 
   useEffect(() => {
     let trackingInterval: ReturnType<typeof setInterval>;
@@ -63,6 +78,24 @@ export default function BuyerTracking() {
       if (trackingInterval) clearInterval(trackingInterval);
     };
   }, [errand?.state, id]);
+
+  useEffect(() => {
+    if (errand?.pickupLocation?.latitude && errand?.dropoffLocation?.latitude && isLoaded && window.google) {
+      const directionsService = new window.google.maps.DirectionsService();
+      directionsService.route(
+        {
+          origin: { lat: errand.pickupLocation.latitude, lng: errand.pickupLocation.longitude },
+          destination: { lat: errand.dropoffLocation.latitude, lng: errand.dropoffLocation.longitude },
+          travelMode: window.google.maps.TravelMode.DRIVING,
+        },
+        (result, status) => {
+          if (status === window.google.maps.DirectionsStatus.OK) {
+            setDirections(result);
+          }
+        }
+      );
+    }
+  }, [errand?.pickupLocation?.latitude, errand?.dropoffLocation?.latitude, isLoaded]);
 
   const fetchErrand = async () => {
     try {
@@ -236,38 +269,45 @@ export default function BuyerTracking() {
         )}
 
         {/* Live Map / GPS Mock */}
-        <div className="bg-slate-200 w-full h-64 rounded-2xl mb-6 flex flex-col items-center justify-center border border-slate-300 relative overflow-hidden">
-          {errand.state === 'IN_PROGRESS' && tracking ? (
-            <>
-              <div className="absolute inset-0 bg-nomba-dark/5"></div>
-              <div className="absolute w-full h-full p-4 flex flex-col justify-end">
-                <div className="bg-white/90 backdrop-blur-sm self-start px-4 py-2 rounded-xl shadow-sm border border-slate-200 text-sm font-medium flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-slate-400" />
-                  Lat: {tracking.latitude.toFixed(4)}, Lng: {tracking.longitude.toFixed(4)}
-                </div>
-              </div>
-              <div className="relative">
-                <div className="absolute -inset-4 bg-nomba-yellow/20 rounded-full animate-ping"></div>
-                <Navigation className="w-10 h-10 text-nomba-dark relative z-10" />
-              </div>
-              <p className="mt-6 text-sm font-semibold text-slate-700 bg-white/80 px-3 py-1 rounded-full backdrop-blur-sm">Runner is moving towards you...</p>
-            </>
-          ) : errand.state === 'DELIVERED' ? (
-             <div className="flex flex-col items-center text-green-700">
-               <CheckCircle2 className="w-12 h-12 mb-2" />
-               <p className="font-semibold">Package Delivered Successfully</p>
-             </div>
-          ) : errand.state === 'REJECTED_BY_BUYER' ? (
-             <div className="flex flex-col items-center text-red-600">
-               <XCircle className="w-12 h-12 mb-2" />
-               <p className="font-semibold">Errand Cancelled</p>
-               <p className="text-sm mt-1 text-red-500 text-center">You rejected the item. Your escrow refund is processing.</p>
-             </div>
+        <div className="w-full h-80 rounded-2xl mb-6 overflow-hidden border border-slate-300 shadow-sm relative">
+          {isLoaded ? (
+            <GoogleMap
+              mapContainerStyle={{ width: '100%', height: '100%' }}
+              center={tracking ? { lat: tracking.latitude, lng: tracking.longitude } : errand?.pickupLocation ? { lat: errand.pickupLocation.latitude, lng: errand.pickupLocation.longitude } : { lat: 6.5244, lng: 3.3792 }}
+              zoom={tracking ? 15 : 12}
+              options={{ disableDefaultUI: true, zoomControl: true }}
+            >
+              {directions && <DirectionsRenderer directions={directions} options={{ suppressMarkers: false, polylineOptions: { strokeColor: '#f2c94c', strokeWeight: 5 } }} />}
+              {tracking && <Marker position={{ lat: tracking.latitude, lng: tracking.longitude }} label="🚚" zIndex={999} />}
+            </GoogleMap>
           ) : (
-            <>
-              <MapPin className="w-10 h-10 text-slate-400" />
-              <p className="mt-2 text-sm font-medium text-slate-500">Live tracking will appear during transit</p>
-            </>
+            <div className="w-full h-full bg-slate-200 flex flex-col items-center justify-center">
+              <Loader2 className="w-8 h-8 animate-spin text-nomba-yellow mb-2" />
+              <p className="text-slate-500 font-medium">Loading Map...</p>
+            </div>
+          )}
+
+          {/* Overlay Status */}
+          {errand.state !== 'IN_PROGRESS' && (
+            <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-10">
+              {errand.state === 'DELIVERED' ? (
+                <div className="flex flex-col items-center text-green-700">
+                  <CheckCircle2 className="w-12 h-12 mb-2" />
+                  <p className="font-semibold text-lg">Package Delivered Successfully</p>
+                </div>
+              ) : errand.state === 'REJECTED_BY_BUYER' ? (
+                <div className="flex flex-col items-center text-red-600">
+                  <XCircle className="w-12 h-12 mb-2" />
+                  <p className="font-semibold text-lg">Errand Cancelled</p>
+                  <p className="text-sm mt-1 text-red-500 text-center">Your escrow refund is processing.</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center text-slate-500">
+                  <MapPin className="w-10 h-10 mb-2" />
+                  <p className="font-medium">Live tracking will appear during transit</p>
+                </div>
+              )}
+            </div>
           )}
         </div>
 

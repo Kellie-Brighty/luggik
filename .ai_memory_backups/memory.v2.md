@@ -111,3 +111,7 @@ This unique flow prevents disputes by ensuring buyer satisfaction *before* the i
 - The success modal now displays an initial "Assigning logistics company..." loader.
 - Once accepted by a dispatcher, the loader swaps to a green checkmark showing the `runnerCompanyName`, and a second loader appears saying "Assigning an available rider...".
 - Once a rider starts the errand, the second loader swaps to a green checkmark showing the `actualRiderName`.
+
+### Update: 6/28/2026, 8:58:15 PM
+- Implemented local storage persistence in `BuyerDashboard.tsx` to save the `errandId` of newly created errands.
+- Added a `useEffect` to `BuyerDashboard.tsx` that fires on mount, checks local storage for `luggik_buyer_errands`, fetches the state of those errands from Firestore, and automatically redirects the user to the `BuyerTracking` page if an ongoing/active errand is found.

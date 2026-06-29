@@ -1,108 +1,147 @@
-import { ArrowLeft, Package, MapPin, Loader2, CheckCircle2 } from "lucide-react";
+import { Package, ArrowLeft, Loader2, MapPin, CheckCircle2, Building2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { doc, getDoc, onSnapshot } from "firebase/firestore";
-import { db } from "../firebase"; // Assuming firebase config is exported from here
+import { useJsApiLoader, Autocomplete, GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api';
+import { db } from "../firebase";
+import { doc, onSnapshot } from "firebase/firestore";
+
+const libraries: "places"[] = ["places"];
 
 export default function BuyerDashboard() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [errandId, setErrandId] = useState<string | null>(null);
-  const [liveErrand, setLiveErrand] = useState<any>(null);
 
   // Form State
   const [itemName, setItemName] = useState("");
   const [priceAmount, setPriceAmount] = useState("");
   const [buyerEmail, setBuyerEmail] = useState("");
-  const [vendorEmail, setVendorEmail] = useState("");
   const [buyerPhone, setBuyerPhone] = useState("");
+  const [vendorEmail, setVendorEmail] = useState("");
   const [vendorPhone, setVendorPhone] = useState("");
+
+  // Location State
   const [pickupAddress, setPickupAddress] = useState("");
+  const [pickupCoords, setPickupCoords] = useState<{lat: number, lng: number} | null>(null);
   const [dropoffAddress, setDropoffAddress] = useState("");
+  const [dropoffCoords, setDropoffCoords] = useState<{lat: number, lng: number} | null>(null);
 
-  const DELIVERY_FEE = 2500;
-  const total = Number(priceAmount || 0) + DELIVERY_FEE;
+  // Map & Routing State
+  const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
 
-  // Restore active errand from local storage on mount
+  // Quotes State
+  const [fetchingQuotes, setFetchingQuotes] = useState(false);
+  const [quotes, setQuotes] = useState<any[]>([]);
+  const [selectedQuote, setSelectedQuote] = useState<any>(null);
+
+  // Submission State
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [errandId, setErrandId] = useState<string | null>(null);
+  const [liveErrand, setLiveErrand] = useState<any>(null);
+
+  // Autocomplete instances
+  const [pickupAutocomplete, setPickupAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
+  const [dropoffAutocomplete, setDropoffAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
+
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "",
+    libraries,
+  });
+
+  // Calculate totals
+  const itemPriceNum = Number(priceAmount.replace(/,/g, "")) || 0;
+  const deliveryFeeNum = selectedQuote ? selectedQuote.priceAmount : 0;
+  const total = itemPriceNum + deliveryFeeNum;
+
+  // Listen to live errand updates if created
   useEffect(() => {
-    const checkActiveErrand = async () => {
-      try {
-        const stored = localStorage.getItem("luggik_buyer_errands");
-        if (stored) {
-          const errandIds: string[] = JSON.parse(stored);
-          // Check from newest to oldest
-          for (let i = errandIds.length - 1; i >= 0; i--) {
-            const id = errandIds[i];
-            const docRef = doc(db, "errands", id);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-              const state = docSnap.data().state;
-              // If it's an ongoing errand, redirect to tracking
-              if (state !== 'DELIVERED' && state !== 'REJECTED_BY_BUYER') {
-                navigate(`/buyer/tracking/${id}`);
-                return;
-              }
-            }
-          }
-        }
-      } catch (e) {
-        console.error("Failed to restore errand from local storage", e);
-      }
-    };
-    checkActiveErrand();
-  }, [navigate]);
-
-  useEffect(() => {
-    if (!success || !errandId) return;
-    
-    const unsubscribe = onSnapshot(doc(db, "errands", errandId), (docSnap) => {
-      if (docSnap.exists()) {
-        setLiveErrand(docSnap.data());
+    if (!errandId) return;
+    const unsub = onSnapshot(doc(db, "errands", errandId), (doc) => {
+      if (doc.exists()) {
+        setLiveErrand({ id: doc.id, ...doc.data() });
       }
     });
+    return () => unsub();
+  }, [errandId]);
 
-    return () => unsubscribe();
-  }, [success, errandId]);
+  // Fetch routing directions when both coordinates are available
+  useEffect(() => {
+    if (pickupCoords && dropoffCoords && isLoaded && window.google) {
+      const directionsService = new window.google.maps.DirectionsService();
+      directionsService.route(
+        {
+          origin: pickupCoords,
+          destination: dropoffCoords,
+          travelMode: window.google.maps.TravelMode.DRIVING,
+        },
+        (result, status) => {
+          if (status === window.google.maps.DirectionsStatus.OK) {
+            setDirections(result);
+          } else {
+            console.error("Directions request failed due to " + status);
+            setDirections(null);
+          }
+        }
+      );
+    } else {
+      setDirections(null);
+    }
+  }, [pickupCoords, dropoffCoords, isLoaded]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!itemName || !priceAmount || !vendorPhone || !buyerPhone || !buyerEmail || !vendorEmail || !pickupAddress || !dropoffAddress) {
-      alert("Please fill in all fields.");
+  // Auto-fetch quotes when locations change
+  useEffect(() => {
+    if (!pickupCoords || !dropoffCoords) {
+      setQuotes([]);
+      setSelectedQuote(null);
       return;
     }
 
-    setLoading(true);
+    const fetchQuotes = async () => {
+      setFetchingQuotes(true);
+      try {
+        const res = await fetch("/api/errands/quotes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pickupLocation: { latitude: pickupCoords.lat, longitude: pickupCoords.lng },
+            dropoffLocation: { latitude: dropoffCoords.lat, longitude: dropoffCoords.lng }
+          })
+        });
 
-    try {
-      const response = await fetch('/api/errands', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          buyerId: "buyer-demo-123", // Hardcoded for demo
-          sellerId: "vendor-demo-456", // Hardcoded for demo
-          buyerEmail,
-          sellerEmail: vendorEmail,
-          itemName,
-          priceAmount: Number(priceAmount),
-          currency: "NGN",
-          pickupLocation: { latitude: pickupCoords.lat, longitude: pickupCoords.lng },
-          dropoffLocation: { latitude: dropoffCoords.lat, longitude: dropoffCoords.lng }
-        })
-      });
+        if (!res.ok) {
+          throw new Error("Failed to fetch quotes");
+        }
 
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Failed to fetch quotes");
+        const data = await res.json();
+        setQuotes(data.quotes || []);
+        setSelectedQuote(null); // Reset selection
+      } catch (err: any) {
+        console.error(err.message);
+      } finally {
+        setFetchingQuotes(false);
       }
+    };
 
-      const data = await res.json();
-      setQuotes(data.quotes || []);
-      setSelectedQuote(null); // Reset selection
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setFetchingQuotes(false);
+    fetchQuotes();
+  }, [pickupCoords, dropoffCoords]);
+
+  const onPickupPlaceChanged = () => {
+    if (pickupAutocomplete !== null) {
+      const place = pickupAutocomplete.getPlace();
+      if (place.geometry?.location) {
+        setPickupAddress(place.formatted_address || place.name || "");
+        setPickupCoords({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() });
+      }
+    }
+  };
+
+  const onDropoffPlaceChanged = () => {
+    if (dropoffAutocomplete !== null) {
+      const place = dropoffAutocomplete.getPlace();
+      if (place.geometry?.location) {
+        setDropoffAddress(place.formatted_address || place.name || "");
+        setDropoffCoords({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() });
+      }
     }
   };
 
@@ -149,6 +188,17 @@ export default function BuyerDashboard() {
       const newId = data.errandId;
       setErrandId(newId);
       setSuccess(true);
+
+      // Save to local storage
+      try {
+        const stored = localStorage.getItem("luggik_buyer_errands");
+        const errandIds = stored ? JSON.parse(stored) : [];
+        errandIds.push(newId);
+        localStorage.setItem("luggik_buyer_errands", JSON.stringify(errandIds));
+      } catch (e) {
+        console.error("Failed to save errand to local storage", e);
+      }
+
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -215,7 +265,7 @@ export default function BuyerDashboard() {
             <p className="text-slate-500 text-sm mt-1">Tell us what you are buying, who you are buying from, and where it's going.</p>
           </div>
           
-          <form onSubmit={handleGetQuotes} className="p-6 space-y-8">
+          <form onSubmit={(e) => e.preventDefault()} className="p-6 space-y-8">
             
             {/* SECTION: Item Details */}
             <div className="space-y-4">
@@ -227,7 +277,10 @@ export default function BuyerDashboard() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Item Price (₦)</label>
-                  <input required value={priceAmount} onChange={e => setPriceAmount(e.target.value)} type="number" placeholder="20000" className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-nomba-yellow focus:border-nomba-yellow outline-none transition-all" />
+                  <input required value={priceAmount} onChange={e => {
+                    const raw = e.target.value.replace(/\D/g, "");
+                    setPriceAmount(raw ? parseInt(raw, 10).toLocaleString("en-US") : "");
+                  }} type="text" inputMode="numeric" placeholder="20,000" className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-nomba-yellow focus:border-nomba-yellow outline-none transition-all" />
                 </div>
               </div>
             </div>
@@ -290,65 +343,91 @@ export default function BuyerDashboard() {
               </div>
             </div>
 
-            {/* SECTION: Quotes */}
-            <div className="pt-6 border-t border-slate-100">
-              {!quotes.length ? (
-                <button type="submit" disabled={fetchingQuotes || !pickupCoords || !dropoffCoords} className="w-full bg-slate-900 text-white px-10 py-4 rounded-xl font-semibold text-lg hover:bg-black transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                  {fetchingQuotes && <Loader2 className="w-5 h-5 animate-spin" />}
-                  {fetchingQuotes ? "Calculating Distances..." : "Get Delivery Quotes"}
-                </button>
-              ) : (
-                <div className="space-y-4">
-                  <h3 className="font-bold text-slate-900 mb-4">Available Delivery Partners</h3>
-                  <div className="space-y-3">
-                    {quotes.map((q, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setSelectedQuote(q)}
-                        className={`w-full p-4 rounded-xl border text-left flex items-center justify-between transition-all ${selectedQuote?.companyId === q.companyId ? 'border-nomba-dark bg-nomba-dark/5 ring-1 ring-nomba-dark' : 'border-slate-200 hover:border-slate-300 bg-white'}`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center shrink-0">
-                            <Building2 className="w-5 h-5 text-slate-500" />
-                          </div>
-                          <div>
-                            <p className="font-bold text-slate-900">{q.companyName}</p>
-                            <p className="text-xs text-slate-500">{q.distanceKm} km total routing</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-nomba-dark text-lg">₦{q.priceAmount.toLocaleString()}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-
-                  {selectedQuote && (
-                    <div className="mt-8 pt-6 border-t border-slate-200">
-                      <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-6">
-                        <div className="text-center md:text-left">
-                          <p className="text-slate-600">Total (Item + Delivery)</p>
-                          <p className="text-3xl font-bold text-slate-900">₦{total.toLocaleString()}</p>
-                        </div>
-                        <button 
-                          type="button" 
-                          onClick={handlePayAndCreate}
-                          disabled={loading} 
-                          className="w-full md:w-auto bg-nomba-yellow text-nomba-dark px-10 py-4 rounded-xl font-semibold text-lg hover:brightness-105 transition-all shadow-md hover:shadow-nomba-yellow/25 disabled:opacity-50 flex items-center justify-center gap-2"
-                        >
-                          {loading && <Loader2 className="w-5 h-5 animate-spin" />}
-                          Pay & Lock Escrow
-                        </button>
-                      </div>
-                      <p className="text-xs text-center text-slate-500 flex items-center justify-center gap-1">
-                        🔒 Secured by Nomba Trust Engine
-                      </p>
-                    </div>
-                  )}
+            {/* SECTION: Map Visualizer */}
+            {isLoaded && (pickupCoords || dropoffCoords) && (
+              <div className="pt-6 border-t border-slate-100">
+                <h3 className="text-xs font-bold tracking-wider text-slate-400 uppercase mb-4">Route Map</h3>
+                <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                  <GoogleMap
+                    mapContainerStyle={{ width: '100%', height: '350px' }}
+                    center={pickupCoords || dropoffCoords || { lat: 6.5244, lng: 3.3792 }}
+                    zoom={12}
+                    options={{ disableDefaultUI: false, streetViewControl: false, mapTypeControl: false }}
+                  >
+                    {directions && <DirectionsRenderer directions={directions} options={{ suppressMarkers: false, polylineOptions: { strokeColor: '#f2c94c', strokeWeight: 5 } }} />}
+                    {!directions && pickupCoords && <Marker position={pickupCoords} label="P" />}
+                    {!directions && dropoffCoords && <Marker position={dropoffCoords} label="D" />}
+                  </GoogleMap>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* SECTION: Quotes */}
+            {(pickupCoords && dropoffCoords) && (
+              <div className="pt-6 border-t border-slate-100">
+                {fetchingQuotes ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-slate-500">
+                    <Loader2 className="w-8 h-8 animate-spin text-nomba-dark mb-4" />
+                    <p className="font-medium text-slate-700">Calculating route & finding partners...</p>
+                  </div>
+                ) : !quotes.length ? (
+                  <div className="bg-slate-50 border border-slate-200 text-center p-8 rounded-xl">
+                    <p className="text-slate-600 font-medium text-lg">No delivery partners found</p>
+                    <p className="text-sm text-slate-500 mt-1">Try adjusting your pickup or dropoff locations.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <h3 className="font-bold text-slate-900 mb-4">Available Delivery Partners</h3>
+                    <div className="space-y-3">
+                      {quotes.map((q, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setSelectedQuote(q)}
+                          className={`w-full p-4 rounded-xl border text-left flex items-center justify-between transition-all ${selectedQuote?.companyId === q.companyId ? 'border-nomba-dark bg-nomba-dark/5 ring-1 ring-nomba-dark' : 'border-slate-200 hover:border-slate-300 bg-white'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center shrink-0">
+                              <Building2 className="w-5 h-5 text-slate-500" />
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-900">{q.companyName}</p>
+                              <p className="text-xs text-slate-500">{q.distanceKm} km total routing</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-nomba-dark text-lg">₦{q.priceAmount.toLocaleString()}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+
+                    {selectedQuote && (
+                      <div className="mt-8 pt-6 border-t border-slate-200">
+                        <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-6">
+                          <div className="text-center md:text-left">
+                            <p className="text-slate-600">Total (Item + Delivery)</p>
+                            <p className="text-3xl font-bold text-slate-900">₦{total.toLocaleString()}</p>
+                          </div>
+                          <button 
+                            type="button" 
+                            onClick={handlePayAndCreate}
+                            disabled={loading} 
+                            className="w-full md:w-auto bg-nomba-yellow text-nomba-dark px-10 py-4 rounded-xl font-semibold text-lg hover:brightness-105 transition-all shadow-md hover:shadow-nomba-yellow/25 disabled:opacity-50 flex items-center justify-center gap-2"
+                          >
+                            {loading && <Loader2 className="w-5 h-5 animate-spin" />}
+                            Pay & Lock Escrow
+                          </button>
+                        </div>
+                        <p className="text-xs text-center text-slate-500 flex items-center justify-center gap-1">
+                          🔒 Secured by Nomba Trust Engine
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </form>
         </div>
       </div>
