@@ -42,30 +42,37 @@ class EmailService {
   }
 
   async sendEscrowLockedMails(errand: Errand) {
+    const buyerName = errand.buyerName || 'Buyer';
+    const vendorName = errand.sellerName || 'Vendor';
+
     const buyerSubject = `Your Escrow for '${errand.itemName}' is Locked!`;
-    const buyerText = `Hi Buyer,\n\nGood news! We have successfully locked ${errand.priceAmount} ${errand.currency} in escrow for your order of '${errand.itemName}'.\n\nA runner will be assigned shortly. Your money is completely safe and won't be released until the item is delivered to you.`;
+    const buyerText = `Hi ${buyerName},\n\nGood news! We have successfully locked ${errand.priceAmount} ${errand.currency} in escrow for your order of '${errand.itemName}'.\n\nA runner will be assigned shortly. Your money is completely safe and won't be released until the item is delivered to you.`;
     
     const vendorSubject = `Order Created! Escrow Locked for '${errand.itemName}'`;
-    const vendorText = `Hi Vendor,\n\nGreat news! A buyer has initiated an order for '${errand.itemName}'.\n\nWe have successfully locked their payment of ${errand.priceAmount} ${errand.currency} in Luggik Escrow. A runner will arrive soon to verify and pick up the item.\n\nYou are guaranteed to get paid once delivery is completed.`;
+    const vendorText = `Hi ${vendorName},\n\nGreat news! ${buyerName} has initiated an order for '${errand.itemName}'.\n\nWe have successfully locked their payment of ${errand.priceAmount} ${errand.currency} in Luggik Escrow. A runner will arrive soon to verify and pick up the item.\n\nYou are guaranteed to get paid once delivery is completed.`;
 
     if (errand.buyerEmail) await this.sendMail(errand.buyerEmail, buyerSubject, buyerText);
     if (errand.sellerEmail) await this.sendMail(errand.sellerEmail, vendorSubject, vendorText);
   }
 
   async sendRunnerAcceptedMails(errand: Errand) {
+    const buyerName = errand.buyerName || 'Buyer';
+    const vendorName = errand.sellerName || 'Vendor';
+
     const subject = `A Runner is on the way for '${errand.itemName}'!`;
-    const buyerText = `Hi Buyer,\n\nA runner has just accepted your errand and is heading to the vendor's shop to verify and pick up the item.`;
-    const vendorText = `Hi Vendor,\n\nA runner is currently en route to your shop to verify and pick up '${errand.itemName}'. Please have it ready!`;
+    const buyerText = `Hi ${buyerName},\n\nA runner has just accepted your errand and is heading to ${vendorName}'s shop to verify and pick up the item.`;
+    const vendorText = `Hi ${vendorName},\n\nA runner is currently en route to your shop to verify and pick up '${errand.itemName}'. Please have it ready!`;
 
     if (errand.buyerEmail) await this.sendMail(errand.buyerEmail, subject, buyerText);
     if (errand.sellerEmail) await this.sendMail(errand.sellerEmail, subject, vendorText);
   }
 
   async sendRiderDispatchedMail(errand: Errand, plateNumber: string, imageUrl: string) {
+    const vendorName = errand.sellerName || 'Vendor';
     const subject = `Rider Dispatched! Details for '${errand.itemName}'`;
     
     // Fallback Text Version
-    let text = `Hi Vendor,\n\n`;
+    let text = `Hi ${vendorName},\n\n`;
     text += `The rider has started the errand and is currently en route to your shop to verify and pick up '${errand.itemName}'.\n\n`;
     text += `Please verify the rider before handing over the item.\n\n`;
     text += `--- Rider Details ---\n`;
@@ -80,7 +87,7 @@ class EmailService {
     let html = `
       <div style="font-family: sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #1a1a1a;">Rider Dispatched!</h2>
-        <p>Hi Vendor,</p>
+        <p>Hi ${vendorName},</p>
         <p>The rider has started the errand and is currently en route to your shop to verify and pick up <strong>'${errand.itemName}'</strong>.</p>
         <p style="color: #b91c1c; font-weight: bold;">Please verify the rider before handing over the item.</p>
         
@@ -108,11 +115,14 @@ class EmailService {
   }
 
   async sendDeliverySuccessMails(errand: Errand) {
+    const buyerName = errand.buyerName || 'Buyer';
+    const vendorName = errand.sellerName || 'Vendor';
+
     const buyerSubject = `Delivery Complete! Funds Released.`;
-    const buyerText = `Hi Buyer,\n\nYour errand for '${errand.itemName}' has been marked as DELIVERED. We hope you love your item! The escrow funds have now been released.`;
+    const buyerText = `Hi ${buyerName},\n\nYour errand for '${errand.itemName}' has been marked as DELIVERED. We hope you love your item! The escrow funds have now been released.`;
 
     const vendorSubject = `Delivery Complete! Payout Initiated.`;
-    const vendorText = `Hi Vendor,\n\nYour item '${errand.itemName}' has been successfully delivered to the buyer. Your payout of ${errand.priceAmount} ${errand.currency} has been initiated to your Nomba wallet!`;
+    const vendorText = `Hi ${vendorName},\n\nYour item '${errand.itemName}' has been successfully delivered to ${buyerName}. Your payout of ${errand.priceAmount} ${errand.currency} has been initiated to your Nomba wallet!`;
 
     const runnerSubject = `Delivery Complete! Commission Payout Initiated.`;
     const runnerText = `Hi Runner,\n\nGreat job! You successfully verified and delivered '${errand.itemName}'. Your commission of ${errand.deliveryFee} ${errand.currency} has been credited to your wallet.`;

@@ -13,8 +13,10 @@ export default function BuyerDashboard() {
   // Form State
   const [itemName, setItemName] = useState("");
   const [priceAmount, setPriceAmount] = useState("");
+  const [buyerName, setBuyerName] = useState("");
   const [buyerEmail, setBuyerEmail] = useState("");
   const [buyerPhone, setBuyerPhone] = useState("");
+  const [vendorName, setVendorName] = useState("");
   const [vendorEmail, setVendorEmail] = useState("");
   const [vendorPhone, setVendorPhone] = useState("");
 
@@ -168,6 +170,8 @@ export default function BuyerDashboard() {
           latitude: dropoffCoords!.lat,
           longitude: dropoffCoords!.lng
         },
+        buyerName,
+        sellerName: vendorName,
         buyerPhone,
         sellerPhone: vendorPhone,
         buyerEmail,
@@ -289,6 +293,10 @@ export default function BuyerDashboard() {
             <div className="space-y-4 pt-6 border-t border-slate-100">
               <h3 className="text-xs font-bold tracking-wider text-slate-400 uppercase mb-2">2. Your Details (Dropoff)</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Your Name</label>
+                  <input required value={buyerName} onChange={e => setBuyerName(e.target.value)} type="text" placeholder="e.g. Alice Smith" className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-nomba-yellow focus:border-nomba-yellow outline-none transition-all" />
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Your Email</label>
                   <input required value={buyerEmail} onChange={e => setBuyerEmail(e.target.value)} type="email" placeholder="you@email.com" className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-nomba-yellow focus:border-nomba-yellow outline-none transition-all" />
@@ -318,6 +326,10 @@ export default function BuyerDashboard() {
             <div className="space-y-4 pt-6 border-t border-slate-100">
               <h3 className="text-xs font-bold tracking-wider text-slate-400 uppercase mb-2">3. Vendor Details (Pickup)</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Vendor Name / Business Name</label>
+                  <input required value={vendorName} onChange={e => setVendorName(e.target.value)} type="text" placeholder="e.g. John Doe or J-Tech Gadgets" className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-nomba-yellow focus:border-nomba-yellow outline-none transition-all" />
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Vendor Email</label>
                   <input required value={vendorEmail} onChange={e => setVendorEmail(e.target.value)} type="email" placeholder="vendor@email.com" className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-nomba-yellow focus:border-nomba-yellow outline-none transition-all" />

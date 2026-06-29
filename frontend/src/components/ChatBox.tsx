@@ -72,7 +72,7 @@ export default function ChatBox({ errandId, viewerRole = 'runner' }: { errandId:
         const base64Content = reader.result as string;
 
         try {
-          const res = await fetch('https://api.hicity.me/upload', {
+          const res = await fetch('/api/upload', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -150,6 +150,15 @@ export default function ChatBox({ errandId, viewerRole = 'runner' }: { errandId:
             );
           })
         )}
+        {isUploading && (
+          <div className="flex flex-col items-end mb-2">
+            <span className="text-[10px] text-slate-400 mb-1 px-1 font-medium">Uploading</span>
+            <div className="max-w-[75%] px-4 py-2 rounded-2xl text-sm bg-nomba-yellow text-nomba-dark rounded-tr-none flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-nomba-dark border-t-transparent rounded-full animate-spin"></div>
+              <span>Sending image...</span>
+            </div>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -166,10 +175,14 @@ export default function ChatBox({ errandId, viewerRole = 'runner' }: { errandId:
           type="button" 
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading}
-          className={`p-2 rounded-full transition-colors ${isUploading ? 'text-slate-300' : 'text-slate-400 hover:text-nomba-dark hover:bg-slate-100'}`}
+          className={`p-2 rounded-full transition-colors ${isUploading ? 'text-slate-300 cursor-not-allowed' : 'text-slate-400 hover:text-nomba-dark hover:bg-slate-100'}`}
           title="Upload image"
         >
-          <ImageIcon className="w-5 h-5" />
+          {isUploading ? (
+            <div className="w-5 h-5 border-2 border-slate-300 border-t-transparent rounded-full animate-spin"></div>
+          ) : (
+            <ImageIcon className="w-5 h-5" />
+          )}
         </button>
         <input
           type="text"

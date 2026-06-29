@@ -40,6 +40,8 @@ export interface Errand {
   dropoffLocation: Location;
   buyerPhone: string;
   sellerPhone: string;
+  buyerName?: string;
+  sellerName?: string;
   buyerEmail?: string;
   sellerEmail?: string;
   runnerEmail?: string;

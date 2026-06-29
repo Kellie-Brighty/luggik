@@ -10,6 +10,7 @@ export const createErrand = async (req: Request, res: Response): Promise<any> =>
     const { 
       buyerId, sellerId, itemName, priceAmount, currency, 
       deliveryFee, pickupLocation, dropoffLocation, 
+      buyerName, sellerName,
       buyerPhone, sellerPhone, buyerEmail, sellerEmail, metadata,
       runnerId, runnerCompanyName
     } = req.body;
@@ -24,7 +25,7 @@ export const createErrand = async (req: Request, res: Response): Promise<any> =>
     console.log(`[Nomba Escrow] Locked ${priceAmount} ${currency || 'NGN'} for Item + ${deliveryFee} for Delivery`);
     
     // Triggering Escrow Notification to Seller
-    console.log(`[Notification] 📲 SMS to Seller (${sellerPhone}): "Good news! Luggik has securely locked ${priceAmount} ${currency || 'NGN'} in escrow for your item '${itemName}'. A runner is on the way for pickup."`);
+    console.log(`[Notification] 📲 SMS to ${sellerName || 'Vendor'} (${sellerPhone}): "Hi ${sellerName || 'Vendor'}, good news! Luggik has securely locked ${priceAmount} ${currency || 'NGN'} in escrow for your item '${itemName}'. A runner is on the way for pickup."`);
 
     const errandData: any = {
       buyerId,
@@ -34,6 +35,8 @@ export const createErrand = async (req: Request, res: Response): Promise<any> =>
       deliveryFee,
       pickupLocation,
       dropoffLocation,
+      buyerName,
+      sellerName,
       buyerPhone,
       sellerPhone,
       buyerEmail,

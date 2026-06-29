@@ -13,3 +13,7 @@ ai-directive.md
 
 # Firebase Credentials
 service-account.json
+
+# Deploy and AI Memory
+deploy/
+.ai_memory*

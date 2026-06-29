@@ -1,4 +1,4 @@
-import { Settings, LogOut, PackageSearch, Users, ArrowLeft, Loader2, AlertCircle, Image as ImageIcon, UserPlus, Mail, Lock, Eye, EyeOff, CheckCircle2, Car } from "lucide-react";
+import { Settings, LogOut, PackageSearch, Users, ArrowLeft, Loader2, AlertCircle, Image as ImageIcon, UserPlus, Mail, Lock, Eye, EyeOff, CheckCircle2, Car, Clock } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -15,6 +15,9 @@ interface Errand {
   pickupLocation: { address: string };
   dropoffLocation: { address: string };
   state: string;
+  actualRiderName?: string;
+  actualRiderPlateNumber?: string;
+  actualRiderImageUrl?: string;
 }
 
 export default function RunnerDashboard() {
@@ -23,7 +26,12 @@ export default function RunnerDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'errands' | 'fleet' | 'settings'>('errands');
+  const [activeTab, setActiveTab] = useState<'errands' | 'fleet' | 'settings' | 'history'>('errands');
+  const [companyErrands, setCompanyErrands] = useState<Errand[]>([]);
+  
+  const totalRevenue = companyErrands
+    .filter(e => e.state === 'DELIVERED')
+    .reduce((sum, errand) => sum + (errand.deliveryFee || 0), 0);
   
   // Rider creation state
   const [newRiderEmail, setNewRiderEmail] = useState("");
@@ -100,7 +108,21 @@ export default function RunnerDashboard() {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    const companyErrandsQuery = query(
+      collection(db, "errands"), 
+      where("runnerId", "==", user.uid),
+      orderBy("createdAt", "desc")
+    );
+    
+    const unsubscribeCompany = onSnapshot(companyErrandsQuery, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Errand[];
+      setCompanyErrands(data);
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribeCompany();
+    };
   }, [user, kycStatus, role, navigate]);
 
   const fetchRiders = async () => {
@@ -219,7 +241,7 @@ export default function RunnerDashboard() {
         const base64Content = reader.result as string;
 
         try {
-          const res = await fetch('https://api.hicity.me/upload', {
+          const res = await fetch('/api/upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -261,18 +283,33 @@ export default function RunnerDashboard() {
       <div className="max-w-3xl mx-auto">
         
         {/* Header */}
-        <header className="flex items-center gap-4 mb-6">
-          <Link to="/" className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500">
-            <ArrowLeft className="w-6 h-6" />
-          </Link>
-          <h1 className="text-2xl font-bold text-slate-900 flex-1">Dispatcher Dashboard</h1>
-          <button 
-            onClick={handleLogout} 
-            className="text-sm font-medium text-slate-600 hover:text-red-600 flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-red-50 rounded-full transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-            Logout
-          </button>
+        <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-4">
+            <Link to="/" className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500">
+              <ArrowLeft className="w-6 h-6" />
+            </Link>
+            <h1 className="text-2xl font-bold text-slate-900">Dispatcher Dashboard</h1>
+          </div>
+          
+          <div className="flex items-center gap-4 w-full md:w-auto">
+            <div className="bg-nomba-yellow/10 border border-nomba-yellow/50 px-4 py-2 rounded-xl flex items-center gap-3">
+              <div className="bg-nomba-yellow p-1.5 rounded-lg">
+                <CheckCircle2 className="w-4 h-4 text-nomba-dark" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Total Revenue</p>
+                <p className="font-black text-lg text-slate-900 leading-tight">₦{totalRevenue.toLocaleString()}</p>
+              </div>
+            </div>
+            
+            <button 
+              onClick={handleLogout} 
+              className="text-sm font-medium text-slate-600 hover:text-red-600 flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-red-50 rounded-full transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
+            </button>
+          </div>
         </header>
 
         {/* Tabs */}
@@ -283,6 +320,13 @@ export default function RunnerDashboard() {
           >
             <PackageSearch className="w-5 h-5" />
             Available Errands
+          </button>
+          <button 
+            onClick={() => setActiveTab('history')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold transition-all ${activeTab === 'history' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            <Clock className="w-5 h-5" />
+            My Errands
           </button>
           <button 
             onClick={() => setActiveTab('fleet')}
@@ -505,6 +549,100 @@ export default function RunnerDashboard() {
                         <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">
                           Active
                         </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : activeTab === 'history' ? (
+          <div className="space-y-8">
+            <div>
+              <h2 className="text-xl font-black text-slate-900 mb-4 tracking-tight flex items-center gap-2"><Clock className="w-5 h-5 text-nomba-yellow"/> Active Errands</h2>
+              {companyErrands.filter(e => !['DELIVERED', 'CANCELLED', 'REJECTED_BY_BUYER', 'DISPUTED'].includes(e.state)).length === 0 ? (
+                <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center">
+                  <p className="text-slate-500 font-medium">No active errands. Accept some from the Available Errands tab!</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {companyErrands.filter(e => !['DELIVERED', 'CANCELLED', 'REJECTED_BY_BUYER', 'DISPUTED'].includes(e.state)).map(errand => (
+                    <div key={errand.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-start justify-between gap-4 transition-all hover:shadow-md hover:border-nomba-yellow">
+                      <div>
+                        <h3 className="font-bold text-lg text-slate-900">{errand.itemName}</h3>
+                        <p className="text-sm text-slate-500 mb-2 font-medium flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-slate-300"></span> {errand.pickupLocation.address} <br/>
+                          <span className="w-2 h-2 rounded-full bg-nomba-yellow"></span> {errand.dropoffLocation.address}
+                        </p>
+                        <div className="text-xs font-bold text-nomba-yellow bg-nomba-dark px-3 py-1.5 rounded-lg inline-block uppercase tracking-wider mb-4">
+                          {errand.state.replace(/_/g, ' ')}
+                        </div>
+                        
+                        {/* Rider Info */}
+                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 mt-2">
+                          {errand.actualRiderImageUrl ? (
+                            <img src={errand.actualRiderImageUrl} alt={errand.actualRiderName} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center border-2 border-white shadow-sm">
+                              <Car className="w-5 h-5 text-slate-400" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-sm font-bold text-slate-900 leading-tight">{errand.actualRiderName || 'Awaiting Rider'}</p>
+                            {errand.actualRiderPlateNumber ? (
+                              <p className="text-xs text-slate-500 font-medium">{errand.actualRiderPlateNumber}</p>
+                            ) : (
+                              <p className="text-xs text-slate-400 font-medium italic">Pending dispatch...</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right bg-slate-50 p-3 rounded-xl border border-slate-100 min-w-[120px]">
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Delivery Fee</p>
+                        <p className="text-2xl font-black text-slate-900">₦{errand.deliveryFee?.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div>
+              <h2 className="text-xl font-black text-slate-900 mb-4 tracking-tight flex items-center gap-2"><CheckCircle2 className="w-5 h-5 text-green-500"/> History (Completed)</h2>
+              {companyErrands.filter(e => ['DELIVERED', 'CANCELLED', 'REJECTED_BY_BUYER', 'DISPUTED'].includes(e.state)).length === 0 ? (
+                <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center">
+                  <p className="text-slate-500 font-medium">No completed errands yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {companyErrands.filter(e => ['DELIVERED', 'CANCELLED', 'REJECTED_BY_BUYER', 'DISPUTED'].includes(e.state)).map(errand => (
+                    <div key={errand.id} className="bg-slate-50 p-6 rounded-2xl border border-slate-200 flex flex-col md:flex-row items-start justify-between gap-4 opacity-80 hover:opacity-100 transition-opacity">
+                      <div>
+                        <h3 className="font-bold text-lg text-slate-700 line-through decoration-slate-300">{errand.itemName}</h3>
+                        <p className="text-sm text-slate-500 mb-2 font-medium flex items-center gap-2">
+                          {errand.pickupLocation.address} → {errand.dropoffLocation.address}
+                        </p>
+                        <div className={`text-xs font-bold px-3 py-1.5 rounded-lg inline-block uppercase tracking-wider mb-4 ${errand.state === 'DELIVERED' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {errand.state.replace(/_/g, ' ')}
+                        </div>
+
+                        {/* Rider Info */}
+                        {errand.actualRiderName && (
+                          <div className="flex items-center gap-2 mt-2">
+                            {errand.actualRiderImageUrl ? (
+                              <img src={errand.actualRiderImageUrl} alt={errand.actualRiderName} className="w-6 h-6 rounded-full object-cover grayscale" />
+                            ) : (
+                              <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center">
+                                <Car className="w-3 h-3 text-slate-400" />
+                              </div>
+                            )}
+                            <p className="text-xs font-semibold text-slate-500">{errand.actualRiderName}</p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Earned</p>
+                        <p className="text-xl font-black text-slate-700">₦{errand.deliveryFee?.toLocaleString()}</p>
                       </div>
                     </div>
                   ))}
