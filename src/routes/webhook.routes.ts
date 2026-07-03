@@ -34,7 +34,7 @@ function generateSignature(payload: any, secret: string, timeStamp: string): str
   return hmac.digest("base64");
 }
 
-router.post('/nomba', express.json(), (req: Request, res: Response): any => {
+router.post('/nomba', express.json(), async (req: Request, res: Response): Promise<any> => {
   console.log("--- INCOMING WEBHOOK ---");
   console.log("Headers:", req.headers);
   console.log("Body:", req.body);
@@ -62,6 +62,34 @@ router.post('/nomba', express.json(), (req: Request, res: Response): any => {
   console.log("Nomba Webhook Received:", payload.event_type);
 
   // Process event here (e.g., payment_success)
+  try {
+    const accountNumber = payload?.data?.transaction?.aliasAccountNumber || payload?.data?.virtualAccount?.accountNumber || payload?.data?.accountDetails?.accountNumber || payload?.data?.accountNumber;
+    
+    if (accountNumber && (payload?.event_type === 'payment_success' || payload?.event?.type === 'transaction.success' || payload?.data?.amount || payload?.data?.transaction?.transactionAmount)) {
+      const snapshot = await db.collection('errands').where('virtualAccount.accountNumber', '==', accountNumber).limit(1).get();
+      
+      if (!snapshot.empty) {
+        const errandDoc = snapshot.docs[0];
+        const errandData = errandDoc.data() as any;
+        
+        if (!errandData.escrowLockedNotified) {
+          console.log(`[Nomba Webhook] Match found for errand ${errandDoc.id}. Triggering Escrow Notifications.`);
+          
+          console.log(`[Notification] 📲 SMS to ${errandData.sellerName || 'Vendor'} (${errandData.sellerPhone}): "Hi ${errandData.sellerName || 'Vendor'}, good news! Luggik has initiated escrow for your item '${errandData.itemName}'. A runner is on the way for pickup."`);
+
+          await emailService.sendEscrowLockedMails(errandData);
+
+          await errandDoc.ref.update({
+            state: 'ESCROW_LOCKED',
+            escrowLockedNotified: true,
+            escrowLockedAt: new Date().toISOString()
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error processing Nomba webhook escrow logic:', error);
+  }
   
   res.status(200).send('Webhook Received');
 });

@@ -4,6 +4,7 @@ import webhookRoutes from './src/routes/webhook.routes.js';
 import errandRoutes from './src/routes/errand.routes.js';
 import trackingRoutes from './src/routes/tracking.routes.js';
 import kycRoutes from './src/routes/kyc.routes.js';
+import buyerRoutes from './src/routes/buyer.routes.js';
 import fleetRoutes from './src/routes/fleet.routes.js';
 import uploadRoutes from './src/routes/upload.routes.js';
 
@@ -14,6 +15,7 @@ app.use(express.json({ limit: '50mb' }));
 
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/errands', errandRoutes);
+app.use('/api/buyers', buyerRoutes);
 app.use('/api/tracking', trackingRoutes);
 app.use('/api/kyc', kycRoutes);
 app.use('/api/fleet', fleetRoutes);

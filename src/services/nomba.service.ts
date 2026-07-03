@@ -23,7 +23,7 @@ class NombaService {
     this.clientId = process.env.NOMBA_CLIENT_ID || '';
     this.clientSecret = process.env.NOMBA_CLIENT_SECRET || '';
     this.accountId = process.env.NOMBA_ACCOUNT_ID || '';
-    this.baseUrl = 'https://sandbox.nomba.com/v1'; 
+    this.baseUrl = 'https://api.nomba.com/v1'; 
     
     this.state = 'UNAUTHENTICATED';
     this.accessToken = null;
@@ -85,7 +85,73 @@ class NombaService {
   getAccessToken(): string | null {
     return this.accessToken;
   }
+
+  async createVirtualAccount(accountRef: string, accountName: string, currency: string = 'NGN'): Promise<any> {
+    if (this.state === 'UNAUTHENTICATED' || !this.accessToken) {
+      const authenticated = await this.authenticate();
+      if (!authenticated) throw new Error('Failed to authenticate with Nomba');
+    }
+
+    try {
+      const subAccountId = process.env.NOMBA_SUB_ACCOUNT_ID || 'e3b59182-b814-4d74-9ee6-f679c5f724ab';
+      const response = await axios.post(`${this.baseUrl}/accounts/virtual/${subAccountId}`, {
+        accountRef,
+        accountName,
+        currency,
+        bvn: '1234567890'
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'accountId': this.accountId,
+          'Authorization': `Bearer ${this.accessToken}`
+        }
+      });
+
+      if (response.data && response.data.code === '00') {
+        return response.data.data;
+      }
+      throw new Error(`Virtual account generation failed: ${JSON.stringify(response.data)}`);
+    } catch (error: any) {
+      console.error('Nomba Virtual Account Error:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  async getVirtualAccountTransactions(virtualAccount: string): Promise<any[]> {
+    if (this.state === 'UNAUTHENTICATED' || !this.accessToken) {
+      const authenticated = await this.authenticate();
+      if (!authenticated) throw new Error('Failed to authenticate with Nomba');
+    }
+
+    try {
+      const today = new Date();
+      today.setDate(today.getDate() + 1); // include tomorrow for safety
+      const todayStr = today.toISOString().split('T')[0];
+      
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      
+      const url = `${this.baseUrl}/transactions/virtual?virtual_account=${virtualAccount}&dateFrom=${yesterdayStr}&dateTo=${todayStr}`;
+      
+      const response = await axios.get(url, {
+        headers: {
+          'Content-Type': 'application/json',
+          'accountId': this.accountId,
+          'Authorization': `Bearer ${this.accessToken}`
+        }
+      });
+
+      if (response.data && response.data.code === '00') {
+        return response.data.data.results || [];
+      }
+      throw new Error(`Failed to fetch transactions: ${JSON.stringify(response.data)}`);
+    } catch (error: any) {
+      console.error('Nomba Transactions Error:', error.response?.data || error.message);
+      throw error;
+    }
+  }
 }
 
-const nombaService = new NombaService();
+export const nombaService = new NombaService(); 
 export default nombaService;

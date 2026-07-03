@@ -1,4 +1,4 @@
-import { ArrowRight, Eye, ShieldCheck, Clock } from "lucide-react";
+import { ArrowRight, Eye, ShieldCheck, Clock, Check } from "lucide-react";
 import { Link } from "react-router-dom";
 import heroImageOne from "../assets/hero-image-one.png";
 import heroImageTwo from "../assets/hero-image-two.png";
@@ -9,12 +9,14 @@ export default function LandingPage() {
       
       {/* Navigation Container */}
       <div className="pt-6 px-6 flex justify-center w-full">
-        <nav className="flex items-center justify-between px-8 py-3 bg-white rounded-full w-full max-w-[1200px] shadow-sm">
+        <nav className="flex items-center justify-between px-8 py-3 bg-transparent border border-[#EAEAEA] rounded-full w-full max-w-[1200px]">
           {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="w-5 h-5 bg-[#D9D9D9] rounded-sm"></div>
-            <span className="text-[17px] font-bold tracking-tight text-luggik-text">Luggik</span>
-          </div>
+          <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
+            <div className="w-[24px] h-[24px] bg-[#2A2925] rounded-[4px] flex items-center justify-center border border-[#3E3C36]">
+              <Check className="w-3.5 h-3.5 text-[#FFCC00]" strokeWidth={3} />
+            </div>
+            <span className="text-[18px] font-bold tracking-tight text-[#111111] font-['Space_Grotesk',sans-serif]">Luggik</span>
+          </Link>
 
           {/* Right Actions */}
           <div className="flex items-center gap-8">
@@ -37,8 +39,8 @@ export default function LandingPage() {
         {/* LEFT COLUMN - MOCKUPS */}
         <div className="hidden lg:flex flex-col gap-6 w-[280px] mt-10">
           {/* Image 1 */}
-          <div className="p-4 bg-white rounded-[32px] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] w-[240px] mx-auto rotate-[-2deg]">
-             <img src={heroImageOne} alt="Courier" className="w-full h-auto rounded-[20px] object-cover aspect-square" />
+          <div className="w-[240px] mx-auto rotate-[-2deg]">
+             <img src={heroImageOne} alt="Courier" className="w-full h-auto rounded-[20px] object-cover aspect-square shadow-[0_20px_40px_-15px_rgba(0,0,0,0.2)]" />
           </div>
           
           {/* Tracking Card 1 */}
@@ -103,8 +105,8 @@ export default function LandingPage() {
         {/* RIGHT COLUMN - MOCKUPS */}
         <div className="hidden lg:flex flex-col gap-6 w-[280px] mt-24 relative z-10">
            {/* Image 2 */}
-           <div className="p-4 bg-white rounded-[32px] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] w-[240px] mx-auto rotate-[2deg]">
-             <img src={heroImageTwo} alt="Buyer" className="w-full h-auto rounded-[20px] object-cover aspect-square" />
+           <div className="w-[240px] mx-auto rotate-[2deg]">
+             <img src={heroImageTwo} alt="Buyer" className="w-full h-auto rounded-[20px] object-cover aspect-square shadow-[0_20px_40px_-15px_rgba(0,0,0,0.2)]" />
            </div>
            
            {/* Tracking Card 2 */}

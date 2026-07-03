@@ -2,7 +2,8 @@ import { db } from '../config/firebase.js';
 import { FieldValue } from 'firebase-admin/firestore';
 
 export type ErrandState = 
-  | 'CREATED'          // Errand is created, funds are locked in Nomba
+  | 'CREATED'          // Errand is created, virtual account generated, awaiting funds
+  | 'ESCROW_LOCKED'    // Funds have been successfully deposited via Nomba
   | 'ACCEPTED'         // Runner accepts the errand
   | 'PENDING_VERIFICATION' // Runner is at vendor, waiting for buyer approval via chat
   | 'REJECTED_BY_BUYER'    // Buyer rejects the item, errand cancelled, partial refund
@@ -52,6 +53,12 @@ export interface Errand {
   metadata?: ErrandMetadata;
   state: ErrandState;
   nombaTransactionRef?: string;
+  virtualAccount?: {
+    accountNumber: string;
+    accountName: string;
+    bankName: string;
+  };
+  trackingPin?: string;
   createdAt: FieldValue;
   updatedAt: FieldValue;
 }
@@ -68,6 +75,7 @@ export class ErrandModel {
       updatedAt: FieldValue.serverTimestamp()
     };
     await docRef.set(newErrand);
+    await this.syncPublicTracking(docRef.id);
     return docRef.id;
   }
 
@@ -80,7 +88,7 @@ export class ErrandModel {
   }
 
   async getAvailableErrands(): Promise<Errand[]> {
-    const snapshot = await this.collection.where('state', '==', 'CREATED').orderBy('createdAt', 'desc').get();
+    const snapshot = await this.collection.where('state', '==', 'ESCROW_LOCKED').orderBy('createdAt', 'desc').get();
     return snapshot.docs.map(doc => doc.data() as Errand);
   }
 
@@ -89,6 +97,7 @@ export class ErrandModel {
       state: newState,
       updatedAt: FieldValue.serverTimestamp()
     });
+    await this.syncPublicTracking(id);
   }
 
   async assignRunner(id: string, runnerId: string, companyName?: string): Promise<void> {
@@ -98,6 +107,7 @@ export class ErrandModel {
       state: 'ACCEPTED',
       updatedAt: FieldValue.serverTimestamp()
     });
+    await this.syncPublicTracking(id);
   }
 
   async assignActualRider(id: string, riderName: string, plateNumber?: string, imageUrl?: string): Promise<void> {
@@ -109,6 +119,25 @@ export class ErrandModel {
     if (imageUrl) updates.actualRiderImageUrl = imageUrl;
     
     await this.collection.doc(id).update(updates);
+    await this.syncPublicTracking(id);
+  }
+
+  async syncPublicTracking(id: string): Promise<void> {
+    const errand = await this.getErrand(id);
+    if (!errand) return;
+    
+    await db.collection('public_tracking').doc(id).set({
+      id,
+      state: errand.state,
+      itemName: errand.itemName,
+      pickupLocation: errand.pickupLocation,
+      priceAmount: errand.priceAmount,
+      actualRiderName: errand.actualRiderName || null,
+      actualRiderPlateNumber: errand.actualRiderPlateNumber || null,
+      actualRiderImageUrl: errand.actualRiderImageUrl || null,
+      runnerCompanyName: errand.runnerCompanyName || null,
+      updatedAt: FieldValue.serverTimestamp()
+    }, { merge: true });
   }
 }
 

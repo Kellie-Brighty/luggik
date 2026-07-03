@@ -70,7 +70,7 @@ export default function RunnerDashboard() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      window.location.href = '/';
+      navigate('/runner/login');
     } catch (e) {
       console.error("Failed to logout", e);
     }
@@ -93,7 +93,7 @@ export default function RunnerDashboard() {
 
     const q = query(
       collection(db, "errands"), 
-      where("state", "==", "CREATED"),
+      where("state", "==", "ESCROW_LOCKED"),
       orderBy("createdAt", "desc")
     );
     

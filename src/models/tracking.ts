@@ -32,6 +32,12 @@ class TrackingModel {
       points: FieldValue.arrayUnion(newPoint),
       updatedAt: FieldValue.serverTimestamp()
     }, { merge: true });
+
+    // Also push the latest location to public_tracking for realtime listeners
+    await db.collection('public_tracking').doc(errandId).set({
+      currentLocation: newPoint,
+      updatedAt: FieldValue.serverTimestamp()
+    }, { merge: true });
   }
 
   async getLocationHistory(errandId: string): Promise<Tracking | null> {

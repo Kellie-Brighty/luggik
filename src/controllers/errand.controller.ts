@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { errandModel, ErrandState, Errand } from '../models/errand.js';
+import { buyerModel } from '../models/buyerModel.js';
 import nombaService from '../services/nomba.service.js';
 import { emailService } from '../services/email.service.js';
 import { db } from '../config/firebase.js';
@@ -19,13 +20,31 @@ export const createErrand = async (req: Request, res: Response): Promise<any> =>
       return res.status(400).json({ error: 'Missing required fields (buyer, seller, item, locations, contacts, fees)' });
     }
 
-    // AI Directive: We are mocking the financial logic here.
-    // In a live scenario, we would trigger a Nomba payment hold (escrow) here.
+    // AI Directive: We are replacing the mocked financial logic with real Nomba API integration
     const mockTransactionRef = `LUG-${Date.now()}`;
-    console.log(`[Nomba Escrow] Locked ${priceAmount} ${currency || 'NGN'} for Item + ${deliveryFee} for Delivery`);
     
-    // Triggering Escrow Notification to Seller
-    console.log(`[Notification] 📲 SMS to ${sellerName || 'Vendor'} (${sellerPhone}): "Hi ${sellerName || 'Vendor'}, good news! Luggik has securely locked ${priceAmount} ${currency || 'NGN'} in escrow for your item '${itemName}'. A runner is on the way for pickup."`);
+    // Generating Virtual Account for Buyer
+    let virtualAccount = undefined;
+    try {
+      let combinedName = `${buyerName || 'Buyer'} to ${sellerName || 'Vendor'}`;
+      // Nomba strictly forbids special characters in account names
+      combinedName = combinedName.replace(/[^a-zA-Z0-9 ]/g, '').trim().substring(0, 30);
+      
+      const vAcc = await nombaService.createVirtualAccount(
+        mockTransactionRef,
+        combinedName,
+        currency || 'NGN'
+      );
+      virtualAccount = {
+        accountNumber: vAcc.bankAccountNumber || vAcc.accountNumber,
+        accountName: vAcc.bankAccountName || vAcc.accountName,
+        bankName: vAcc.bankName
+      };
+      console.log(`[Nomba Escrow] Generated Virtual Account: ${virtualAccount.accountNumber} at ${virtualAccount.bankName}`);
+    } catch (err: any) {
+      console.error('Failed to generate virtual account during errand creation:', err.message);
+      // We log but proceed so the app doesn't break if Nomba credentials are not fully set up in dev
+    }
 
     const errandData: any = {
       buyerId,
@@ -46,22 +65,66 @@ export const createErrand = async (req: Request, res: Response): Promise<any> =>
       runnerCompanyName: runnerCompanyName || null,
       currency: currency || 'NGN',
       state: 'CREATED',
-      nombaTransactionRef: mockTransactionRef
+      nombaTransactionRef: mockTransactionRef,
+      virtualAccount,
+      trackingPin: Math.floor(1000 + Math.random() * 9000).toString()
     };
 
     const errandId = await errandModel.createErrand(errandData);
 
-    // Trigger Email Notification
-    await emailService.sendEscrowLockedMails(errandData as Errand);
+    // Get or create Master PIN for the buyer
+    const buyerData = await buyerModel.getOrCreateBuyer(buyerPhone);
 
     return res.status(201).json({
-      message: 'Errand successfully created, funds locked, and seller notified',
+      message: 'Errand successfully created, funds pending',
       errandId,
-      state: 'CREATED'
+      state: 'CREATED',
+      virtualAccount,
+      trackingPin: errandData.trackingPin,
+      masterPin: buyerData.isNew ? buyerData.masterPin : null
     });
   } catch (error: any) {
     console.error('Error creating errand:', error);
     return res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const verifyTracking = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const id = req.params.id as string;
+    const { trackingPin } = req.body;
+
+    if (!trackingPin) {
+      return res.status(400).json({ error: 'Tracking PIN is required' });
+    }
+
+    const errand = await errandModel.getErrand(id);
+    if (!errand) {
+      return res.status(404).json({ error: 'Errand not found' });
+    }
+
+    if (errand.trackingPin !== trackingPin) {
+      return res.status(403).json({ error: 'Invalid Tracking PIN' });
+    }
+
+    // Return limited data (hide dropoff coordinates and buyer details for privacy)
+    return res.status(200).json({
+      errand: {
+        id,
+        state: errand.state,
+        itemName: errand.itemName,
+        pickupLocation: errand.pickupLocation,
+        actualRiderName: errand.actualRiderName,
+        actualRiderPlateNumber: errand.actualRiderPlateNumber,
+        actualRiderImageUrl: errand.actualRiderImageUrl,
+        runnerCompanyName: errand.runnerCompanyName,
+        priceAmount: errand.priceAmount,
+        dropoffLocation: { address: 'Protected Delivery Address' } // Omit coordinates
+      }
+    });
+  } catch (error) {
+    console.error('Error verifying tracking PIN:', error);
+    res.status(500).json({ error: 'Failed to verify tracking PIN' });
   }
 };
 
@@ -81,12 +144,86 @@ export const getErrand = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
+export const nombaWebhook = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const payload = req.body;
+    console.log(`[Nomba Webhook] Received webhook:`, JSON.stringify(payload));
+
+    const accountNumber = payload?.data?.virtualAccount?.accountNumber || payload?.data?.accountDetails?.accountNumber || payload?.data?.accountNumber;
+    
+    if (accountNumber && (payload?.event?.type === 'transaction.success' || payload?.data?.amount)) {
+      const snapshot = await db.collection('errands').where('virtualAccount.accountNumber', '==', accountNumber).limit(1).get();
+      
+      if (!snapshot.empty) {
+        const errandDoc = snapshot.docs[0];
+        const errandData = errandDoc.data() as Errand;
+        
+        if (!(errandData as any).escrowLockedNotified) {
+          console.log(`[Nomba Webhook] Match found for errand ${errandDoc.id}. Triggering Escrow Notifications.`);
+          
+          console.log(`[Notification] 📲 SMS to ${errandData.sellerName || 'Vendor'} (${errandData.sellerPhone}): "Hi ${errandData.sellerName || 'Vendor'}, good news! Luggik has initiated escrow for your item '${errandData.itemName}'. A runner is on the way for pickup."`);
+
+          await emailService.sendEscrowLockedMails(errandData);
+
+          await errandDoc.ref.update({
+            state: 'ESCROW_LOCKED',
+            escrowLockedNotified: true,
+            escrowLockedAt: new Date().toISOString()
+          });
+        }
+      }
+    }
+
+    return res.status(200).json({ status: 'success' });
+  } catch (error: any) {
+    console.error('Error processing Nomba webhook:', error);
+    return res.status(200).send('OK');
+  }
+};
+
 export const getAvailableErrands = async (req: Request, res: Response): Promise<any> => {
   try {
     const errands = await errandModel.getAvailableErrands();
     return res.status(200).json({ errands });
   } catch (error: any) {
     console.error('Error fetching available errands:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const cancelErrand = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const id = req.params.id as string;
+    const errand = await errandModel.getErrand(id);
+
+    if (!errand) {
+      return res.status(404).json({ error: 'Errand not found' });
+    }
+
+    if ((errand as any).virtualAccount?.accountNumber) {
+      try {
+        const transactions = await nombaService.getVirtualAccountTransactions((errand as any).virtualAccount.accountNumber);
+        if (transactions && transactions.length > 0) {
+          const totalAmount = transactions.reduce((sum: number, tx: any) => sum + parseFloat(tx.amount || '0'), 0);
+          return res.status(400).json({ error: `Cancellation rejected: We have already received a payment of ₦${totalAmount.toLocaleString()} into the escrow virtual account.` });
+        }
+      } catch (e) {
+        console.error('Error fetching transactions for cancel:', e);
+      }
+    }
+
+    if (errand.state !== 'CREATED' && errand.state !== 'PENDING_VERIFICATION') {
+      return res.status(400).json({ error: 'Errand cannot be cancelled because it is already in progress.' });
+    }
+
+    await db.collection('errands').doc(id).update({
+      state: 'CANCELLED',
+      cancelledAt: new Date().toISOString()
+    });
+
+    return res.status(200).json({ message: 'Errand cancelled successfully' });
+  } catch (error: any) {
+    console.error('Error cancelling errand:', error);
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 };
@@ -105,7 +242,7 @@ export const acceptErrand = async (req: Request, res: Response): Promise<any> =>
       return res.status(404).json({ error: 'Errand not found' });
     }
 
-    if (errand.state !== 'CREATED') {
+    if (errand.state !== 'ESCROW_LOCKED') {
       return res.status(400).json({ error: 'Errand is not in a state to be accepted' });
     }
 
@@ -187,8 +324,17 @@ export const updateErrandState = async (req: Request, res: Response): Promise<an
 
     await errandModel.updateErrandState(id, state as ErrandState);
 
-    // If delivered, trigger Nomba payout & Delivery Emails
-    if (state === 'DELIVERED') {
+    // If escrow is locked manually, trigger notifications
+    if (state === 'ESCROW_LOCKED') {
+      if (!(errand as any).escrowLockedNotified) {
+        console.log(`[Notification] 📲 SMS to ${errand.sellerName || 'Vendor'} (${errand.sellerPhone}): "Hi ${errand.sellerName || 'Vendor'}, good news! Luggik has initiated escrow for your item '${errand.itemName}'. A runner is on the way for pickup."`);
+        await emailService.sendEscrowLockedMails(errand);
+        await db.collection('errands').doc(id).update({
+          escrowLockedNotified: true,
+          escrowLockedAt: new Date().toISOString()
+        });
+      }
+    } else if (state === 'DELIVERED') {
       console.log(`[Nomba] Releasing Escrow: Transferring funds to Seller (${errand.sellerId}) and Commission to Runner (${errand.runnerId}) for Errand ${id}`);
       await emailService.sendDeliverySuccessMails(errand);
     } else if (state === 'REJECTED_BY_BUYER') {

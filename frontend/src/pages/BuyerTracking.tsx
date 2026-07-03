@@ -2,7 +2,7 @@ import { ArrowLeft, Loader2, Package, CheckSquare, Truck, CheckCheck, MapPin, Ch
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { signInAnonymously, onAuthStateChanged } from "firebase/auth";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { doc, onSnapshot, collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import ChatBox from "../components/ChatBox";
 import { useJsApiLoader, GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api';
@@ -52,32 +52,30 @@ export default function BuyerTracking() {
     return () => unsubscribe();
   }, []);
 
-  // Poll for errand state every 3 seconds
   useEffect(() => {
-    fetchErrand();
+    if (!id) return;
+    const unsubErrand = onSnapshot(doc(db, "errands", id), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data() as Errand;
+        setErrand({ ...data, id: docSnap.id });
+        setLoading(false);
+      }
+    });
 
-    // Stop polling if we reach a terminal state
-    if (errand?.state === 'DELIVERED' || errand?.state === 'REJECTED_BY_BUYER') {
-      return;
-    }
+    const unsubTracking = onSnapshot(doc(db, "public_tracking", id), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.currentLocation) {
+          setTracking(data.currentLocation);
+        }
+      }
+    });
 
-    const interval = setInterval(() => {
-      fetchErrand();
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [id, errand?.state]);
-
-  useEffect(() => {
-    let trackingInterval: ReturnType<typeof setInterval>;
-    if (errand?.state === 'IN_PROGRESS') {
-      fetchTracking();
-      trackingInterval = setInterval(fetchTracking, 3000);
-    }
     return () => {
-      if (trackingInterval) clearInterval(trackingInterval);
+      unsubErrand();
+      unsubTracking();
     };
-  }, [errand?.state, id]);
+  }, [id]);
 
   useEffect(() => {
     if (errand?.pickupLocation?.latitude && errand?.dropoffLocation?.latitude && isLoaded && window.google) {
@@ -96,33 +94,6 @@ export default function BuyerTracking() {
       );
     }
   }, [errand?.pickupLocation?.latitude, errand?.dropoffLocation?.latitude, isLoaded]);
-
-  const fetchErrand = async () => {
-    try {
-      const res = await fetch(`/api/errands/${id}`);
-      if (res.ok) {
-        setErrand(await res.json());
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchTracking = async () => {
-    try {
-      const res = await fetch(`/api/tracking/${id}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.latestLocation) {
-          setTracking(data.latestLocation);
-        }
-      }
-    } catch (e) {
-      console.error("Failed to fetch tracking", e);
-    }
-  };
 
   const updateState = async (newState: string) => {
     setUpdating(true);
@@ -288,7 +259,7 @@ export default function BuyerTracking() {
           )}
 
           {/* Overlay Status */}
-          {errand.state !== 'IN_PROGRESS' && (
+          {['CREATED', 'ESCROW_LOCKED', 'DELIVERED', 'REJECTED_BY_BUYER', 'CANCELLED', 'COMPLETED'].includes(errand.state) && (
             <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-10">
               {errand.state === 'DELIVERED' ? (
                 <div className="flex flex-col items-center text-green-700">
