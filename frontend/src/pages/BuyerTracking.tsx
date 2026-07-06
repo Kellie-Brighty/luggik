@@ -1,11 +1,13 @@
-import { ArrowLeft, Loader2, Package, CheckSquare, Truck, CheckCheck, MapPin, CheckCircle2, XCircle, CheckCircle } from "lucide-react";
+import { ArrowLeft, Loader2, Package, CheckSquare, Truck, CheckCheck, MapPin, CheckCircle2, XCircle, CheckCircle, Copy, Check, QrCode } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { signInAnonymously, onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot, collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { QRCodeSVG } from "qrcode.react";
 import { auth, db } from "../firebase";
 import ChatBox from "../components/ChatBox";
 import { useJsApiLoader, GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api';
+import { luggikMapStyle } from "../utils/mapStyles";
 
 const libraries: "places"[] = ["places"];
 
@@ -19,6 +21,7 @@ interface Errand {
   runnerPhone?: string;
   runnerCompanyName?: string;
   actualRiderName?: string;
+  trackingPin?: string;
 }
 
 interface TrackingData {
@@ -34,6 +37,7 @@ export default function BuyerTracking() {
   const [tracking, setTracking] = useState<TrackingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
 
   const { isLoaded } = useJsApiLoader({
@@ -211,6 +215,45 @@ export default function BuyerTracking() {
           </div>
         </div>
 
+        {/* Share Tracking Link */}
+        <div className="bg-white rounded-3xl p-8 border border-[#EAEAEA] shadow-[0_2px_20px_rgba(0,0,0,0.03)] w-full mb-6">
+          <h3 className="text-xl font-bold text-[#111111] mb-2">Share with Vendor</h3>
+          <p className="text-[#6E6B5E] text-sm mb-6">Send this secure link and PIN to the vendor so they can verify the escrow and track the rider.</p>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-[#111111] uppercase tracking-wider mb-2">Tracking Link</label>
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  readOnly 
+                  value={window.location.href}
+                  className="flex-1 bg-[#F9F9F9] border border-[#EAEAEA] rounded-xl px-4 py-3 text-[#111111] text-sm outline-none"
+                />
+                <button 
+                  onClick={() => {
+                    navigator.clipboard.writeText(window.location.href);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className="bg-[#2A2925] text-white px-4 py-3 rounded-xl hover:bg-[#111111] transition-colors flex items-center justify-center min-w-[50px]"
+                >
+                  {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+            
+            {errand.trackingPin && (
+              <div>
+                <label className="block text-xs font-semibold text-[#111111] uppercase tracking-wider mb-2">Tracking PIN</label>
+                <div className="bg-[#F9F9F9] border border-[#EAEAEA] rounded-xl px-4 py-3 text-center">
+                  <span className="font-mono text-2xl tracking-[0.25em] font-bold text-[#4466b0]">{errand.trackingPin}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         {errand.state === 'PENDING_VERIFICATION' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-6">
             <h2 className="text-xl font-bold text-slate-900 mb-2">Item Verification Required</h2>
@@ -239,6 +282,29 @@ export default function BuyerTracking() {
           </div>
         )}
 
+        {errand.state === 'ARRIVED_AT_DROPOFF' && (
+          <div className="bg-white p-8 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-[#EAEAEA] mb-6 text-center">
+            <div className="w-16 h-16 bg-[#F7F4EC] rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <QrCode className="w-8 h-8 text-[#111111]" />
+            </div>
+            <h2 className="text-2xl font-bold text-[#111111] mb-2">Delivery Handshake</h2>
+            <p className="text-[#6E6B5E] text-sm mb-8 max-w-sm mx-auto">
+              Your runner has arrived! Please show them this secure QR code to scan. This will confirm the handoff and release the escrow.
+            </p>
+            
+            <div className="bg-white border-2 border-[#EAEAEA] rounded-3xl p-6 inline-block mx-auto shadow-sm">
+              <QRCodeSVG 
+                value={`luggik-delivery-${errand.id}`}
+                size={220}
+                bgColor={"#ffffff"}
+                fgColor={"#111111"}
+                level={"H"}
+                includeMargin={false}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Live Map / GPS Mock */}
         <div className="w-full h-80 rounded-2xl mb-6 overflow-hidden border border-slate-300 shadow-sm relative">
           {isLoaded ? (
@@ -246,7 +312,7 @@ export default function BuyerTracking() {
               mapContainerStyle={{ width: '100%', height: '100%' }}
               center={tracking ? { lat: tracking.latitude, lng: tracking.longitude } : errand?.pickupLocation ? { lat: errand.pickupLocation.latitude, lng: errand.pickupLocation.longitude } : { lat: 6.5244, lng: 3.3792 }}
               zoom={tracking ? 15 : 12}
-              options={{ disableDefaultUI: true, zoomControl: true }}
+              options={{ disableDefaultUI: true, zoomControl: true, styles: luggikMapStyle }}
             >
               {directions && <DirectionsRenderer directions={directions} options={{ suppressMarkers: false, polylineOptions: { strokeColor: '#f2c94c', strokeWeight: 5 } }} />}
               {tracking && <Marker position={{ lat: tracking.latitude, lng: tracking.longitude }} label="🚚" zIndex={999} />}

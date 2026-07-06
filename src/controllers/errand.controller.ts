@@ -13,7 +13,7 @@ export const createErrand = async (req: Request, res: Response): Promise<any> =>
       deliveryFee, pickupLocation, dropoffLocation, 
       buyerName, sellerName,
       buyerPhone, sellerPhone, buyerEmail, sellerEmail, metadata,
-      runnerId, runnerCompanyName
+      runnerId, runnerCompanyName, vendorBankDetails
     } = req.body;
 
     if (!buyerId || !sellerId || !itemName || !priceAmount || !deliveryFee || !pickupLocation || !dropoffLocation || !buyerPhone || !sellerPhone) {
@@ -46,6 +46,21 @@ export const createErrand = async (req: Request, res: Response): Promise<any> =>
       // We log but proceed so the app doesn't break if Nomba credentials are not fully set up in dev
     }
 
+    let runnerBankDetails = null;
+    if (runnerId) {
+      try {
+        const companyDoc = await db.collection('users').doc(runnerId).get();
+        if (companyDoc.exists) {
+          const companyData = companyDoc.data();
+          if (companyData && companyData.bankDetails) {
+            runnerBankDetails = companyData.bankDetails;
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching runner bank details:', err);
+      }
+    }
+
     const errandData: any = {
       buyerId,
       sellerId,
@@ -63,6 +78,8 @@ export const createErrand = async (req: Request, res: Response): Promise<any> =>
       metadata: metadata || {},
       runnerId: runnerId || null,
       runnerCompanyName: runnerCompanyName || null,
+      runnerBankDetails,
+      vendorBankDetails: vendorBankDetails || null,
       currency: currency || 'NGN',
       state: 'CREATED',
       nombaTransactionRef: mockTransactionRef,
@@ -292,7 +309,7 @@ export const startErrand = async (req: Request, res: Response): Promise<any> => 
     const plateNumber = riderData?.plateNumber || '';
     const imageUrl = riderData?.imageUrl || '';
 
-    await errandModel.assignActualRider(id, actualRiderName, plateNumber, imageUrl);
+    await errandModel.assignActualRider(id, actualRiderName, plateNumber, imageUrl, actualRiderId);
 
     const updatedErrand = await errandModel.getErrand(id);
     if (updatedErrand) {
@@ -336,9 +353,77 @@ export const updateErrandState = async (req: Request, res: Response): Promise<an
       }
     } else if (state === 'DELIVERED') {
       console.log(`[Nomba] Releasing Escrow: Transferring funds to Seller (${errand.sellerId}) and Commission to Runner (${errand.runnerId}) for Errand ${id}`);
+      
+      const errandData = errand as any;
+      const transferPromises = [];
+
+      // 1. Pay Seller the item price
+      if (errandData.vendorBankDetails && errandData.vendorBankDetails.accountNumber) {
+        const itemPrice = Number(errandData.priceAmount);
+        if (itemPrice > 0) {
+          transferPromises.push(
+            nombaService.transferToBank(
+              itemPrice,
+              errandData.vendorBankDetails.accountNumber,
+              errandData.sellerName || 'Seller',
+              errandData.vendorBankDetails.bankCode,
+              `LUG-S-${id}-${Date.now()}`,
+              `Luggik payout for ${errandData.itemName}`,
+              'Luggik Escrow'
+            ).then(res => {
+              console.log(`[Nomba] Seller transfer successful:`, res);
+              return { sellerTransferId: res.data?.id };
+            }).catch(err => {
+              console.error(`[Nomba] Seller transfer failed:`, err);
+            })
+          );
+        }
+      } else {
+        console.warn(`[Nomba] Missing vendorBankDetails for Seller (${errand.sellerId})`);
+      }
+
+      // 2. Pay Runner the delivery fee minus 5% commission
+      if (errandData.runnerBankDetails && errandData.runnerBankDetails.accountNumber) {
+        const deliveryFee = Number(errandData.deliveryFee);
+        const luggikCommission = deliveryFee * 0.05;
+        const runnerPayout = deliveryFee - luggikCommission;
+        if (runnerPayout > 0) {
+          transferPromises.push(
+            nombaService.transferToBank(
+              runnerPayout,
+              errandData.runnerBankDetails.accountNumber,
+              errandData.runnerCompanyName || 'Runner',
+              errandData.runnerBankDetails.bankCode,
+              `LUG-R-${id}-${Date.now()}`,
+              `Luggik delivery fee for ${errandData.itemName}`,
+              'Luggik Escrow'
+            ).then(res => {
+              console.log(`[Nomba] Runner transfer successful:`, res);
+              return { runnerTransferId: res.data?.id };
+            }).catch(err => {
+              console.error(`[Nomba] Runner transfer failed:`, err);
+            })
+          );
+        }
+      } else {
+        console.warn(`[Nomba] Missing runnerBankDetails for Runner (${errand.runnerId})`);
+      }
+
+      const results = await Promise.all(transferPromises);
+      
+      // Save transfer refs
+      const updateData: any = {};
+      results.forEach(res => {
+        if (res) Object.assign(updateData, res);
+      });
+      if (Object.keys(updateData).length > 0) {
+        await db.collection('errands').doc(id).update(updateData);
+      }
+
       await emailService.sendDeliverySuccessMails(errand);
     } else if (state === 'REJECTED_BY_BUYER') {
       console.log(`[Nomba] Escrow Refund: Refunding Buyer (${errand.buyerId}) minus Runner base fee for Errand ${id}. Seller (${errand.sellerId}) gets nothing.`);
+      // Note: Refund logic would go here once Buyer bank details are collected or via payment reversal.
     }
 
     return res.status(200).json({

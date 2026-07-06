@@ -2,28 +2,36 @@ import { ArrowRight, Eye, ShieldCheck, Clock, Check } from "lucide-react";
 import { Link } from "react-router-dom";
 import heroImageOne from "../assets/hero-image-one.png";
 import heroImageTwo from "../assets/hero-image-two.png";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function LandingPage() {
+  const { user, role } = useAuth();
   return (
     <div className="min-h-screen bg-luggik-bg font-sans overflow-hidden flex flex-col">
       
       {/* Navigation Container */}
-      <div className="pt-6 px-6 flex justify-center w-full">
-        <nav className="flex items-center justify-between px-8 py-3 bg-transparent border border-[#EAEAEA] rounded-full w-full max-w-[1200px]">
+      <div className="pt-4 sm:pt-6 px-4 sm:px-6 flex justify-center w-full">
+        <nav className="flex items-center justify-between px-4 sm:px-8 py-3 bg-transparent border border-[#EAEAEA] rounded-full w-full max-w-[1200px]">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
+          <Link to="/" className="flex items-center gap-2 sm:gap-3 hover:opacity-90 transition-opacity">
             <div className="w-[24px] h-[24px] bg-[#2A2925] rounded-[4px] flex items-center justify-center border border-[#3E3C36]">
               <Check className="w-3.5 h-3.5 text-[#FFCC00]" strokeWidth={3} />
             </div>
-            <span className="text-[18px] font-bold tracking-tight text-[#111111] font-['Space_Grotesk',sans-serif]">Luggik</span>
+            <span className="text-[16px] sm:text-[18px] font-bold tracking-tight text-[#111111] font-['Space_Grotesk',sans-serif]">Luggik</span>
           </Link>
 
           {/* Right Actions */}
-          <div className="flex items-center gap-8">
-            <Link to="/runner/login" className="text-[14px] font-medium text-luggik-text hover:opacity-80 transition-opacity">
-              Driver Login
-            </Link>
-            <Link to="/buyer" className="flex items-center justify-center bg-black text-white px-6 py-2.5 rounded-full font-medium text-[14px] hover:bg-gray-900 transition-colors shadow-sm">
+          <div className="flex items-center gap-4 sm:gap-8">
+            {user ? (
+              <Link to={role === 'rider' ? "/rider/feed" : "/runner"} className="hidden sm:block text-[14px] font-medium text-luggik-text hover:opacity-80 transition-opacity">
+                Dashboard
+              </Link>
+            ) : (
+              <Link to="/runner/login" className="hidden sm:block text-[14px] font-medium text-luggik-text hover:opacity-80 transition-opacity">
+                Driver Login
+              </Link>
+            )}
+            <Link to="/buyer" className="flex items-center justify-center bg-black text-white px-4 sm:px-6 py-2 sm:py-2.5 rounded-full font-medium text-[13px] sm:text-[14px] hover:bg-gray-900 transition-colors shadow-sm whitespace-nowrap">
               Start an errand
             </Link>
           </div>
@@ -32,8 +40,7 @@ export default function LandingPage() {
 
       {/* Hero Section */}
       <main 
-        className="w-full max-w-[1300px] mx-auto px-6 pb-24 relative flex flex-col lg:flex-row items-center justify-between"
-        style={{ marginTop: '107px' }}
+        className="w-full max-w-[1300px] mx-auto px-4 sm:px-6 pb-16 sm:pb-24 pt-16 sm:pt-24 relative flex flex-col lg:flex-row items-center justify-between"
       >
         
         {/* LEFT COLUMN - MOCKUPS */}
@@ -58,15 +65,15 @@ export default function LandingPage() {
         </div>
 
         {/* CENTER COLUMN - TEXT & CTA */}
-        <div className="flex-1 flex flex-col items-center text-center z-20 px-4 mt-0 lg:mt-0">
+        <div className="flex-1 flex flex-col items-center text-center z-20 px-2 sm:px-4 mt-0 lg:mt-0 w-full">
            {/* Top Tag */}
-           <div className="inline-flex items-center gap-2 mb-8">
+           <div className="inline-flex items-center gap-2 mb-6 sm:mb-8">
              <div className="w-1.5 h-1.5 rounded-full bg-luggik-yellow"></div>
-             <span className="text-[11px] font-semibold tracking-[0.15em] text-[#999999] uppercase">Powered by Nomba</span>
+             <span className="text-[10px] sm:text-[11px] font-semibold tracking-[0.15em] text-[#999999] uppercase">Powered by Nomba</span>
            </div>
 
            {/* Headline */}
-           <h1 className="text-[87px] font-bold leading-[1.05] tracking-normal text-luggik-text mb-8">
+           <h1 className="text-[48px] sm:text-[64px] lg:text-[87px] font-bold leading-[1.05] tracking-normal text-luggik-text mb-6 sm:mb-8">
              Ship it.<br />
              <span className="relative inline-block">
                <span className="relative z-10">Pay it.</span>
@@ -75,22 +82,22 @@ export default function LandingPage() {
            </h1>
 
            {/* Subtitle */}
-           <p className="text-[18px] text-[#666666] max-w-[620px] mx-auto mb-12 leading-[1.6] font-normal">
+           <p className="text-[15px] sm:text-[18px] text-[#666666] max-w-[620px] mx-auto mb-8 sm:mb-12 leading-[1.6] font-normal px-4">
              Luggik holds payment in escrow until delivery is confirmed, so buyers don't pay blind, and carriers don't move freight on faith.
            </p>
 
            {/* Buttons */}
-           <div className="flex flex-col sm:flex-row items-center gap-5 mb-16">
-             <Link to="/buyer" className="flex items-center justify-center gap-2 bg-luggik-yellow text-luggik-text px-8 py-4 rounded-full font-semibold text-[16px] shadow-[0_8px_24px_-8px_rgba(255,204,0,0.6)] hover:-translate-y-0.5 transition-all w-full sm:w-auto">
+           <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-5 mb-10 sm:mb-16 w-full sm:w-auto px-4 sm:px-0">
+             <Link to="/buyer" className="flex items-center justify-center gap-2 bg-luggik-yellow text-luggik-text px-8 py-4 rounded-full font-semibold text-[15px] sm:text-[16px] shadow-[0_8px_24px_-8px_rgba(255,204,0,0.6)] hover:-translate-y-0.5 transition-all w-full sm:w-auto">
                Start an errand <ArrowRight className="w-4 h-4 ml-1" strokeWidth={1.5} />
              </Link>
-             <Link to="/runner/signup" className="flex items-center justify-center bg-transparent border border-[#E5E5E5] text-luggik-text px-8 py-4 rounded-full font-semibold text-[16px] hover:bg-black/5 transition-colors w-full sm:w-auto">
+             <Link to="/runner/signup" className="flex items-center justify-center bg-transparent border border-[#E5E5E5] text-luggik-text px-8 py-4 rounded-full font-semibold text-[15px] sm:text-[16px] hover:bg-black/5 transition-colors w-full sm:w-auto mt-0">
                Join as a courier
              </Link>
            </div>
 
            {/* Trust Icons below buttons */}
-           <div className="flex items-center gap-10 justify-center">
+           <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-10 justify-center">
              <div className="flex items-center gap-2.5 text-[#999999]">
                <ShieldCheck className="w-[18px] h-[18px]" strokeWidth={1.25} />
                <span className="text-[13px] font-normal">Funds held, not gambled</span>
@@ -125,29 +132,29 @@ export default function LandingPage() {
       </main>
 
       {/* The Platform Section */}
-      <section className="w-full px-6 py-24 bg-transparent relative z-10">
+      <section className="w-full px-4 sm:px-6 py-16 sm:py-24 bg-transparent relative z-10">
         <div className="max-w-[1200px] mx-auto">
           {/* Section Header */}
-          <div className="flex flex-col items-center text-center mb-16">
-            <div className="inline-flex items-center gap-2 mb-6">
+          <div className="flex flex-col items-center text-center mb-10 sm:mb-16">
+            <div className="inline-flex items-center gap-2 mb-4 sm:mb-6">
                <div className="w-1.5 h-1.5 rounded-full bg-luggik-yellow"></div>
-               <span className="text-[11px] font-semibold tracking-[0.15em] text-[#999999] uppercase">The Platform</span>
+               <span className="text-[10px] sm:text-[11px] font-semibold tracking-[0.15em] text-[#999999] uppercase">The Platform</span>
             </div>
             
-            <h2 className="text-[48px] font-bold leading-[1.1] tracking-normal text-luggik-text mb-6 max-w-2xl mx-auto">
+            <h2 className="text-[32px] sm:text-[48px] font-bold leading-[1.1] tracking-normal text-luggik-text mb-4 sm:mb-6 max-w-2xl mx-auto px-2">
               Built for people moving packages
             </h2>
             
-            <p className="text-[17px] text-[#777777] max-w-[700px] mx-auto leading-[1.6] font-normal">
+            <p className="text-[15px] sm:text-[17px] text-[#777777] max-w-[700px] mx-auto leading-[1.6] font-normal px-2">
               Not a generic payments wrapper, escrow rules, dispute flows, and tracking made specifically for packages that need delivery.
             </p>
           </div>
 
           {/* Features Grid */}
-          <div className="border border-[#EAEAEA] rounded-[32px] overflow-hidden grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#EAEAEA]">
+          <div className="border border-[#EAEAEA] rounded-[24px] sm:rounded-[32px] overflow-hidden grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#EAEAEA]">
             
             {/* Feature 1 */}
-            <div className="p-10 md:p-12 flex flex-col items-start bg-transparent">
+            <div className="p-8 sm:p-10 md:p-12 flex flex-col items-start bg-transparent">
                <div className="mb-6 relative">
                  <div className="w-8 h-8 rounded-full border-[1.5px] border-luggik-text flex items-center justify-center relative">
                    <div className="w-2.5 h-3 border-[1.5px] border-luggik-text rounded-t-sm absolute -top-1"></div>
@@ -162,7 +169,7 @@ export default function LandingPage() {
             </div>
 
             {/* Feature 2 */}
-            <div className="p-10 md:p-12 flex flex-col items-start bg-transparent">
+            <div className="p-8 sm:p-10 md:p-12 flex flex-col items-start bg-transparent">
                <div className="mb-6 relative">
                  <div className="w-8 h-8 rounded-full border-[1.5px] border-luggik-text relative">
                    <div className="w-[1.5px] h-3 bg-luggik-text absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[90%]"></div>
@@ -177,7 +184,7 @@ export default function LandingPage() {
             </div>
 
             {/* Feature 3 */}
-            <div className="p-10 md:p-12 flex flex-col items-start bg-transparent">
+            <div className="p-8 sm:p-10 md:p-12 flex flex-col items-start bg-transparent">
                <div className="mb-6 relative">
                  <div className="w-8 h-8 relative flex items-center justify-center">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-full h-full text-luggik-text">
@@ -201,21 +208,21 @@ export default function LandingPage() {
       </section>
 
       {/* Why Escrow Section */}
-      <section className="w-full px-6 pb-24 pt-12 relative z-10">
-        <div className="max-w-[1200px] mx-auto bg-[#15140F] rounded-[32px] p-12 md:p-16 lg:p-20 flex flex-col lg:flex-row items-center gap-16 lg:gap-24">
+      <section className="w-full px-4 sm:px-6 pb-16 sm:pb-24 pt-8 sm:pt-12 relative z-10">
+        <div className="max-w-[1200px] mx-auto bg-[#15140F] rounded-[24px] sm:rounded-[32px] p-8 sm:p-12 md:p-16 lg:p-20 flex flex-col lg:flex-row items-center gap-10 sm:gap-16 lg:gap-24">
           
           {/* Left Column - Text */}
-          <div className="flex-1">
-             <div className="inline-flex items-center gap-2 mb-8">
+          <div className="flex-1 w-full">
+             <div className="inline-flex items-center gap-2 mb-6 sm:mb-8">
                <div className="w-1.5 h-1.5 rounded-full bg-luggik-yellow"></div>
-               <span className="text-[11px] font-semibold tracking-[0.15em] text-[#999999] uppercase">Why Escrow</span>
+               <span className="text-[10px] sm:text-[11px] font-semibold tracking-[0.15em] text-[#999999] uppercase">Why Escrow</span>
              </div>
              
-             <h2 className="text-[42px] font-bold leading-[1.1] tracking-[-0.0167em] text-[#F7F4EC] mb-6">
+             <h2 className="text-[32px] sm:text-[42px] font-bold leading-[1.1] tracking-[-0.0167em] text-[#F7F4EC] mb-4 sm:mb-6">
                Money moves only when the package does.
              </h2>
              
-             <p className="text-[16px] text-[#A8A398] leading-[1.5] mb-12 max-w-[480px]">
+             <p className="text-[15px] sm:text-[16px] text-[#A8A398] leading-[1.5] mb-10 sm:mb-12 max-w-[480px]">
                No advance payment into a stranger's account. No carrier hauling cargo on a promise. Luggik sits between both sides until delivery is proven.
              </p>
 
@@ -250,29 +257,29 @@ export default function LandingPage() {
           {/* Right Column - Ledger */}
           <div className="w-full lg:w-[480px] bg-[#F7F4EC]/5 border border-[#F7F4EC]/15 rounded-[24px] overflow-hidden">
              <div className="flex flex-col">
-                <div className="flex items-center justify-between px-8 py-5 border-b border-[#F7F4EC]/10">
-                  <span className="text-[13px] font-mono text-[#A8A398]">Shipment</span>
-                  <span className="text-[13px] font-mono text-[#F7F4EC]">ESC-04417</span>
+                <div className="flex items-start sm:items-center justify-between px-5 sm:px-8 py-4 sm:py-5 border-b border-[#F7F4EC]/10 gap-4">
+                  <span className="text-[12px] sm:text-[13px] font-mono text-[#A8A398] shrink-0">Shipment</span>
+                  <span className="text-[12px] sm:text-[13px] font-mono text-[#F7F4EC] text-right">ESC-04417</span>
                 </div>
-                <div className="flex items-center justify-between px-8 py-5 border-b border-[#F7F4EC]/10">
-                  <span className="text-[13px] font-mono text-[#A8A398]">Route</span>
-                  <span className="text-[13px] font-mono text-[#F7F4EC]">Lagos &rarr; Abuja</span>
+                <div className="flex items-start sm:items-center justify-between px-5 sm:px-8 py-4 sm:py-5 border-b border-[#F7F4EC]/10 gap-4">
+                  <span className="text-[12px] sm:text-[13px] font-mono text-[#A8A398] shrink-0">Route</span>
+                  <span className="text-[12px] sm:text-[13px] font-mono text-[#F7F4EC] text-right">Lagos &rarr; Abuja</span>
                 </div>
-                <div className="flex items-center justify-between px-8 py-5 border-b border-[#F7F4EC]/10">
-                  <span className="text-[13px] font-mono text-[#A8A398]">Status</span>
-                  <span className="text-[13px] font-mono text-luggik-yellow">Funds held</span>
+                <div className="flex items-start sm:items-center justify-between px-5 sm:px-8 py-4 sm:py-5 border-b border-[#F7F4EC]/10 gap-4">
+                  <span className="text-[12px] sm:text-[13px] font-mono text-[#A8A398] shrink-0">Status</span>
+                  <span className="text-[12px] sm:text-[13px] font-mono text-luggik-yellow text-right">Funds held</span>
                 </div>
-                <div className="flex items-center justify-between px-8 py-5 border-b border-[#F7F4EC]/10">
-                  <span className="text-[13px] font-mono text-[#A8A398]">Carrier rating</span>
-                  <span className="text-[13px] font-mono text-[#F7F4EC]">4.9 / 5</span>
+                <div className="flex items-start sm:items-center justify-between px-5 sm:px-8 py-4 sm:py-5 border-b border-[#F7F4EC]/10 gap-4">
+                  <span className="text-[12px] sm:text-[13px] font-mono text-[#A8A398] shrink-0">Carrier rating</span>
+                  <span className="text-[12px] sm:text-[13px] font-mono text-[#F7F4EC] text-right">4.9 / 5</span>
                 </div>
-                <div className="flex items-center justify-between px-8 py-5 border-b border-[#F7F4EC]/10">
-                  <span className="text-[13px] font-mono text-[#A8A398]">Est. release</span>
-                  <span className="text-[13px] font-mono text-[#F7F4EC]">On delivery + sign-off</span>
+                <div className="flex items-start sm:items-center justify-between px-5 sm:px-8 py-4 sm:py-5 border-b border-[#F7F4EC]/10 gap-4">
+                  <span className="text-[12px] sm:text-[13px] font-mono text-[#A8A398] shrink-0">Est. release</span>
+                  <span className="text-[12px] sm:text-[13px] font-mono text-[#F7F4EC] text-right">On delivery + sign-off</span>
                 </div>
-                <div className="flex items-center justify-between px-8 py-8">
-                  <span className="text-[11px] font-mono text-[#A8A398] uppercase tracking-[0.1em]">Held in escrow</span>
-                  <span className="text-[28px] font-bold text-[#F7F4EC]">₦150k</span>
+                <div className="flex items-center justify-between px-5 sm:px-8 py-6 sm:py-8 gap-4">
+                  <span className="text-[10px] sm:text-[11px] font-mono text-[#A8A398] uppercase tracking-[0.1em] shrink-0">Held in escrow</span>
+                  <span className="text-[24px] sm:text-[28px] font-bold text-[#F7F4EC] text-right">₦150k</span>
                 </div>
              </div>
           </div>
@@ -281,27 +288,27 @@ export default function LandingPage() {
       </section>
 
       {/* Stats Section */}
-      <section className="w-full px-6 py-16">
-        <div className="max-w-[1200px] mx-auto border-y border-[#EAEAEA] py-16 grid grid-cols-2 md:grid-cols-4 gap-12 md:gap-6">
-          <div className="flex flex-col gap-3">
+      <section className="w-full px-4 sm:px-6 py-12 sm:py-16">
+        <div className="max-w-[1200px] mx-auto border-y border-[#EAEAEA] py-12 sm:py-16 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 sm:gap-12 md:gap-6">
+          <div className="flex flex-col gap-3 items-center text-center sm:items-start sm:text-left">
             <h3 className="text-[46px] font-bold text-luggik-text tracking-[-0.02em] leading-none">
               ₦48M<span className="text-luggik-yellow">+</span>
             </h3>
             <p className="text-[13px] text-[#999999]">Moved through escrow to date</p>
           </div>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 items-center text-center sm:items-start sm:text-left">
             <h3 className="text-[46px] font-bold text-luggik-text tracking-[-0.02em] leading-none">
               99.2%
             </h3>
             <p className="text-[13px] text-[#999999]">Shipments released without dispute</p>
           </div>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 items-center text-center sm:items-start sm:text-left">
             <h3 className="text-[46px] font-bold text-luggik-text tracking-[-0.02em] leading-none">
               6,400<span className="text-luggik-yellow">+</span>
             </h3>
             <p className="text-[13px] text-[#999999]">Verified carriers on the network</p>
           </div>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 items-center text-center sm:items-start sm:text-left">
             <h3 className="text-[46px] font-bold text-luggik-text tracking-[-0.02em] leading-none">
               35
             </h3>
@@ -311,13 +318,13 @@ export default function LandingPage() {
       </section>
 
       {/* Final CTA Section */}
-      <section className="w-full px-6 pb-24 relative z-10">
-        <div className="max-w-[1200px] mx-auto bg-[#0B0F0E] rounded-[32px] px-8 py-24 md:py-32 flex flex-col items-center text-center relative overflow-hidden">
+      <section className="w-full px-4 sm:px-6 pb-16 sm:pb-24 relative z-10">
+        <div className="max-w-[1200px] mx-auto bg-[#0B0F0E] rounded-[24px] sm:rounded-[32px] px-6 sm:px-8 py-16 sm:py-24 md:py-32 flex flex-col items-center text-center relative overflow-hidden">
           
           {/* Subtle Glow */}
           <div className="absolute top-0 right-0 w-[700px] h-[700px] bg-luggik-yellow/10 blur-[130px] rounded-full pointer-events-none translate-x-1/4 -translate-y-1/4"></div>
 
-          <h2 className="text-[40px] md:text-[52px] font-bold leading-[1.1] tracking-[-0.02em] text-[#F7F4EC] mb-6 max-w-[800px] relative z-10">
+          <h2 className="text-[32px] sm:text-[40px] md:text-[52px] font-bold leading-[1.1] tracking-[-0.02em] text-[#F7F4EC] mb-4 sm:mb-6 max-w-[800px] relative z-10">
             Stop choosing between<br />getting paid and getting paid<br />safely.
           </h2>
           <p className="text-[16px] text-[#A8A398] mb-12 relative z-10">
@@ -336,17 +343,19 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="w-full px-6 md:px-16 py-12">
-        <div className="max-w-[1200px] mx-auto flex flex-col md:flex-row items-center justify-between">
-          <div className="flex items-center gap-3 mb-6 md:mb-0">
-            <div className="w-[18px] h-[18px] bg-[#D9D9D9]"></div>
-            <span className="font-bold text-[18px] tracking-tight text-luggik-text">Luggik</span>
+      <footer className="w-full px-4 sm:px-6 md:px-16 py-8 sm:py-12">
+        <div className="max-w-[1200px] mx-auto flex flex-col sm:flex-row items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3 mb-6 sm:mb-0">
+            <div className="w-[24px] h-[24px] bg-[#2A2925] rounded-[4px] flex items-center justify-center border border-[#3E3C36]">
+              <Check className="w-3.5 h-3.5 text-[#FFCC00]" strokeWidth={3} />
+            </div>
+            <span className="font-bold text-[18px] tracking-tight text-luggik-text font-['Space_Grotesk',sans-serif]">Luggik</span>
           </div>
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-4 sm:gap-8 flex-col sm:flex-row w-full sm:w-auto">
             <Link to="/runner/login" className="text-[13px] font-semibold text-luggik-text hover:opacity-80 transition-opacity">
               Driver Login
             </Link>
-            <Link to="/buyer" className="flex items-center justify-center bg-black text-white px-7 py-3 rounded-full font-semibold text-[13px] hover:bg-gray-900 transition-colors">
+            <Link to="/buyer" className="flex items-center justify-center bg-black text-white px-7 py-3 rounded-full font-semibold text-[13px] hover:bg-gray-900 transition-colors w-full sm:w-auto mt-2 sm:mt-0">
               Start an errand
             </Link>
           </div>

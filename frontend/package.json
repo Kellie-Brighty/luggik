@@ -11,12 +11,16 @@
   },
   "dependencies": {
     "@react-google-maps/api": "^2.20.8",
+    "@types/react-signature-canvas": "^1.0.7",
+    "@yudiel/react-qr-scanner": "^2.6.0",
     "dojah-kyc-sdk-react": "^0.0.6",
     "firebase": "^12.15.0",
     "lucide-react": "^1.21.0",
+    "qrcode.react": "^4.2.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-router-dom": "^7.18.0"
+    "react-router-dom": "^7.18.0",
+    "react-signature-canvas": "^1.1.0-alpha.2"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.1",

@@ -1,5 +1,6 @@
-import { Settings, LogOut, PackageSearch, Users, ArrowLeft, Loader2, AlertCircle, Image as ImageIcon, UserPlus, Mail, Lock, Eye, EyeOff, CheckCircle2, Car, Clock } from "lucide-react";
+import { Settings, LogOut, PackageSearch, Users, Loader2, AlertCircle, Image as UserPlus, Lock, CheckCircle2, Car, Clock, MapPin, ArrowRight, Check } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { formatRelativeTime } from "../utils/timeUtils";
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { signOut } from "firebase/auth";
@@ -18,6 +19,7 @@ interface Errand {
   actualRiderName?: string;
   actualRiderPlateNumber?: string;
   actualRiderImageUrl?: string;
+  createdAt?: any;
 }
 
 export default function RunnerDashboard() {
@@ -39,7 +41,7 @@ export default function RunnerDashboard() {
   const [newRiderName, setNewRiderName] = useState("");
   const [newRiderPlateNumber, setNewRiderPlateNumber] = useState("");
   const [newRiderImageUrl, setNewRiderImageUrl] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  
   const [creatingRider, setCreatingRider] = useState(false);
 
   // Rider edit state
@@ -279,77 +281,99 @@ export default function RunnerDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans p-6">
-      <div className="max-w-3xl mx-auto">
+    <div className="min-h-screen bg-[#F7F4EC] font-[Inter,sans-serif]">
+      
+      {/* Top Header */}
+      <header className="flex items-center justify-between px-8 py-4 bg-[#F7F4EC] border-b border-[#EAEAEA]">
+        <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
+          <div className="w-[24px] h-[24px] bg-[#2A2925] rounded-[4px] flex items-center justify-center border border-[#3E3C36] shadow-sm">
+            <Check className="w-3.5 h-3.5 text-[#FFCC00]" strokeWidth={3} />
+          </div>
+          <span className="text-[18px] font-bold tracking-tight text-[#15140F] font-['Space_Grotesk',sans-serif]">Luggik</span>
+        </Link>
         
-        {/* Header */}
-        <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-4">
-            <Link to="/" className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500">
-              <ArrowLeft className="w-6 h-6" />
-            </Link>
-            <h1 className="text-2xl font-bold text-slate-900">Dispatcher Dashboard</h1>
+        <div className="flex items-center gap-4">
+          <div className="bg-[#15140F] rounded-full pl-1.5 pr-5 py-1.5 flex items-center gap-3 border border-[#3E3C36]">
+            <div className="w-7 h-7 bg-[#FFCC00] rounded-full flex items-center justify-center">
+              <span className="font-bold text-[#15140F] text-sm">₦</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[8px] text-[#A8A398] uppercase tracking-wider leading-none">TOTAL REVENUE</span>
+              <span className="text-white font-bold text-sm leading-none mt-0.5">₦{totalRevenue.toLocaleString()}</span>
+            </div>
           </div>
           
-          <div className="flex items-center gap-4 w-full md:w-auto">
-            <div className="bg-nomba-yellow/10 border border-nomba-yellow/50 px-4 py-2 rounded-xl flex items-center gap-3">
-              <div className="bg-nomba-yellow p-1.5 rounded-lg">
-                <CheckCircle2 className="w-4 h-4 text-nomba-dark" />
-              </div>
-              <div>
-                <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Total Revenue</p>
-                <p className="font-black text-lg text-slate-900 leading-tight">₦{totalRevenue.toLocaleString()}</p>
-              </div>
-            </div>
-            
-            <button 
-              onClick={handleLogout} 
-              className="text-sm font-medium text-slate-600 hover:text-red-600 flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-red-50 rounded-full transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              Logout
-            </button>
-          </div>
-        </header>
+          <button 
+            onClick={handleLogout} 
+            className="flex items-center gap-2 px-4 py-2 bg-transparent border border-[#EAEAEA] rounded-full hover:bg-[rgba(11,15,14,0.03)] transition-colors text-sm font-medium text-[#6E6B5E]"
+          >
+            <LogOut className="w-4 h-4" />
+            Log out
+          </button>
+        </div>
+      </header>
 
-        {/* Tabs */}
-        <div className="flex gap-2 mb-8 bg-slate-200 p-1 rounded-xl">
+      {/* Stats Bar */}
+      <div className="w-full bg-[#15140F] py-3 px-8 flex justify-center items-center gap-12 border-b border-[#3E3C36]">
+        <div className="flex items-center gap-2">
+          <div className="w-1 h-1 bg-[#A8A398] rounded-full"></div>
+          <span className="text-[10px] font-mono text-[#A8A398] uppercase tracking-wider">HELD</span>
+          <span className="text-white text-sm font-bold ml-1 font-mono">₦8,400</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-1 h-1 bg-[#FFCC00] rounded-full shadow-[0_0_8px_rgba(255,204,0,0.5)]"></div>
+          <span className="text-[10px] font-mono text-[#A8A398] uppercase tracking-wider">IN TRANSIT</span>
+          <span className="text-white text-sm font-bold ml-1 font-mono">₦3,200</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-1 h-1 bg-[#4ADE80] rounded-full shadow-[0_0_8px_rgba(74,222,128,0.5)]"></div>
+          <span className="text-[10px] font-mono text-[#A8A398] uppercase tracking-wider">RELEASED TODAY</span>
+          <span className="text-white text-sm font-bold ml-1 font-mono">₦2,570</span>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="w-full bg-[#F7F4EC] border-b border-[#EAEAEA] px-8 flex justify-center">
+        <div className="flex items-center gap-10">
           <button 
             onClick={() => setActiveTab('errands')}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold transition-all ${activeTab === 'errands' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
+            className={`flex items-center gap-2 py-4 text-[13.5px] font-semibold transition-all border-b-[2.5px] ${activeTab === 'errands' ? 'text-[#15140F] border-[#15140F]' : 'text-[#A8A398] border-transparent hover:text-[#6E6B5E]'}`}
           >
-            <PackageSearch className="w-5 h-5" />
+            <PackageSearch className="w-4 h-4" />
             Available Errands
           </button>
           <button 
             onClick={() => setActiveTab('history')}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold transition-all ${activeTab === 'history' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
+            className={`flex items-center gap-2 py-4 text-[13.5px] font-semibold transition-all border-b-[2.5px] ${activeTab === 'history' ? 'text-[#15140F] border-[#15140F]' : 'text-[#A8A398] border-transparent hover:text-[#6E6B5E]'}`}
           >
-            <Clock className="w-5 h-5" />
+            <Clock className="w-4 h-4" />
             My Errands
           </button>
           <button 
             onClick={() => setActiveTab('fleet')}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold transition-all ${activeTab === 'fleet' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
+            className={`flex items-center gap-2 py-4 text-[13.5px] font-semibold transition-all border-b-[2.5px] ${activeTab === 'fleet' ? 'text-[#15140F] border-[#15140F]' : 'text-[#A8A398] border-transparent hover:text-[#6E6B5E]'}`}
           >
-            <Users className="w-5 h-5" />
+            <Users className="w-4 h-4" />
             My Fleet
           </button>
           <button 
             onClick={() => setActiveTab('settings')}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold transition-all ${activeTab === 'settings' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
+            className={`flex items-center gap-2 py-4 text-[13.5px] font-semibold transition-all border-b-[2.5px] ${activeTab === 'settings' ? 'text-[#15140F] border-[#15140F]' : 'text-[#A8A398] border-transparent hover:text-[#6E6B5E]'}`}
           >
-            <Settings className="w-5 h-5" />
+            <Settings className="w-4 h-4" />
             Pricing & Location
           </button>
         </div>
+      </div>
+
+      <div className="max-w-[1000px] mx-auto p-8">
 
         {/* Tab Content */}
         {activeTab === 'errands' ? (
           <div className="space-y-4">
             {loading && (
               <div className="flex justify-center p-12">
-                <Loader2 className="w-8 h-8 animate-spin text-nomba-yellow" />
+                <Loader2 className="w-8 h-8 animate-spin text-[#FFCC00]" />
               </div>
             )}
 
@@ -360,200 +384,221 @@ export default function RunnerDashboard() {
               </div>
             )}
 
+            {!loading && !error && errands.length > 0 && (
+              <div className="mb-6 flex items-center gap-3">
+                <h2 className="text-[20px] font-bold text-[#15140F]">Available errands</h2>
+                <div className="bg-white border border-[#EAEAEA] rounded-full px-2.5 py-0.5 text-[12px] font-semibold text-[#6E6B5E]">
+                  {errands.length}
+                </div>
+              </div>
+            )}
+
             {!loading && !error && errands.length === 0 && (
-              <div className="bg-white rounded-2xl p-12 text-center border border-slate-100 shadow-sm">
-                <PackageSearch className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-lg font-bold text-slate-900 mb-2">No New Errands</h3>
-                <p className="text-slate-500">Check back later for new delivery requests.</p>
+              <div className="bg-transparent rounded-[24px] p-12 text-center border border-[#EAEAEA] shadow-sm">
+                <PackageSearch className="w-12 h-12 text-[#A8A398] mx-auto mb-4" />
+                <h3 className="text-lg font-bold text-[#15140F] mb-2">No New Errands</h3>
+                <p className="text-[#6E6B5E]">Check back later for new delivery requests.</p>
               </div>
             )}
 
             {errands.map(errand => (
-              <div key={errand.id} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="font-bold text-slate-900 text-lg">{errand.itemName}</h3>
-                    <p className="text-slate-500 text-sm">Delivery Fee: ₦{errand.deliveryFee?.toLocaleString()}</p>
+              <div key={errand.id} className="bg-transparent border border-[#EAEAEA] rounded-[16px] p-6 hover:border-[#15140F] transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                
+                {/* Left Side Info */}
+                <div className="flex flex-col flex-1">
+                  <span className="text-[10px] font-mono text-[#A8A398] uppercase tracking-wider mb-2">{errand.id.substring(0, 10).toUpperCase()}</span>
+                  <h3 className="text-[16px] font-bold text-[#15140F] mb-3">{errand.itemName}</h3>
+                  
+                  <div className="flex items-center gap-2 text-[13px] text-[#6E6B5E] mb-4 font-medium">
+                    <MapPin className="w-3.5 h-3.5 text-[#A8A398]" />
+                    <span>{errand.pickupLocation?.address.split(',')[0]}, Lagos <ArrowRight className="w-3 h-3 inline mx-1 text-[#A8A398]" /> {errand.dropoffLocation?.address.split(',')[0]}, Lagos</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="bg-[rgba(255,204,0,0.15)] text-[#E5A800] text-[11px] font-semibold px-2.5 py-1 rounded-full flex items-center gap-1.5 border border-[rgba(255,204,0,0.3)]">
+                      <Lock className="w-3 h-3" />
+                      Escrow funded
+                    </div>
+                    <div className="bg-[#F7F4EC] border border-[#EAEAEA] text-[#6E6B5E] text-[11px] font-medium px-2.5 py-1 rounded-full">
+                      ~4 km
+                    </div>
+                    <div className="bg-[#F7F4EC] border border-[#EAEAEA] text-[#6E6B5E] text-[11px] font-medium px-2.5 py-1 rounded-full whitespace-nowrap">
+                      {formatRelativeTime(errand.createdAt)}
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-3 mb-6 bg-slate-50 p-4 rounded-xl">
-                  <div className="flex items-start gap-3">
-                    <div className="w-2 h-2 rounded-full bg-nomba-yellow mt-2"></div>
-                    <div>
-                      <p className="text-xs text-slate-500 font-medium mb-1">PICKUP</p>
-                      <p className="text-sm text-slate-900">{errand.pickupLocation?.address || 'Vendor Location'}</p>
-                    </div>
+                {/* Right Side Info & Button */}
+                <div className="flex flex-col items-end gap-6 w-full md:w-auto">
+                  <div className="text-right">
+                    <span className="text-[10px] font-mono text-[#A8A398] uppercase tracking-wider block mb-1">ITEM VALUE</span>
+                    <span className="text-[20px] font-bold text-[#15140F] leading-none">₦{errand.priceAmount?.toLocaleString() || "24,000"}</span>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-2 h-2 rounded-full bg-nomba-dark mt-2"></div>
-                    <div>
-                      <p className="text-xs text-slate-500 font-medium mb-1">DROPOFF</p>
-                      <p className="text-sm text-slate-900">{errand.dropoffLocation?.address || 'Buyer Location'}</p>
-                    </div>
-                  </div>
+                  
+                  <button 
+                    onClick={() => handleAccept(errand.id)}
+                    disabled={acceptingId === errand.id}
+                    className="w-full md:w-[140px] py-2.5 bg-[#FFCC00] hover:bg-[#F2C200] text-[#15140F] rounded-full text-[13.5px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_14px_rgba(255,204,0,0.3)]"
+                  >
+                    {acceptingId === errand.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                    ) : (
+                      "Claim errand"
+                    )}
+                  </button>
                 </div>
 
-                <button 
-                  onClick={() => handleAccept(errand.id)}
-                  disabled={acceptingId === errand.id}
-                  className="w-full py-4 bg-nomba-dark hover:bg-black text-white rounded-xl font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                >
-                  {acceptingId === errand.id ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    "Accept Errand For Fleet"
-                  )}
-                </button>
               </div>
             ))}
           </div>
         ) : activeTab === 'fleet' ? (
-          <div className="space-y-6">
+          <div className="space-y-8">
             {/* Create Rider Form */}
-            <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-slate-100 rounded-lg">
-                  <UserPlus className="w-5 h-5 text-slate-700" />
-                </div>
-                <h2 className="text-xl font-bold text-slate-900 mb-6">Register New Rider</h2>
+            <div className="bg-transparent rounded-[24px] p-8 border border-[#EAEAEA] shadow-sm">
+              <div className="flex items-center gap-2 mb-6">
+                <UserPlus className="w-4 h-4 text-[#15140F]" strokeWidth={2.5} />
+                <h2 className="text-[16px] font-bold text-[#15140F]">Register new rider</h2>
               </div>
-              <form onSubmit={handleCreateRider} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
-                  <div className="relative">
-                    <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+              <form onSubmit={handleCreateRider} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6">
+                  <div>
+                    <label className="block text-[12px] font-semibold text-[#15140F] mb-2">Full name</label>
                     <input
                       type="text"
                       value={newRiderName}
                       onChange={(e) => setNewRiderName(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-nomba-dark focus:border-nomba-dark"
+                      className="w-full px-4 py-2.5 bg-[#F7F4EC] border border-[#EAEAEA] rounded-[8px] text-[13px] text-[#15140F] placeholder-[#A8A398] focus:outline-none focus:border-[#15140F] transition-colors"
                       placeholder="e.g. John Doe"
                       required
                     />
                   </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Rider Email</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
+                  <div>
+                    <label className="block text-[12px] font-semibold text-[#15140F] mb-2">Rider email</label>
                     <input 
                       type="email" 
                       required
                       value={newRiderEmail}
                       onChange={(e) => setNewRiderEmail(e.target.value)}
-                      placeholder="rider@company.com"
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-nomba-yellow focus:border-nomba-yellow outline-none transition-all"
+                      placeholder="rider@email.com"
+                      className="w-full px-4 py-2.5 bg-[#F7F4EC] border border-[#EAEAEA] rounded-[8px] text-[13px] text-[#15140F] placeholder-[#A8A398] focus:outline-none focus:border-[#15140F] transition-colors"
                     />
                   </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Temporary Password</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
+                  <div>
+                    <label className="block text-[12px] font-semibold text-[#15140F] mb-2">Temporary password</label>
                     <input 
-                      type={showPassword ? "text" : "password"} 
+                      type="password" 
                       required
                       value={newRiderPassword}
                       onChange={(e) => setNewRiderPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full pl-10 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-nomba-yellow focus:border-nomba-yellow outline-none transition-all"
+                      className="w-full px-4 py-2.5 bg-[#F7F4EC] border border-[#EAEAEA] rounded-[8px] text-[13px] text-[#15140F] placeholder-[#A8A398] focus:outline-none focus:border-[#15140F] transition-colors font-mono tracking-widest"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
-                    >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                    </button>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Vehicle Plate Number (Optional)</label>
-                  <div className="relative">
-                    <Car className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
+                  <div>
+                    <label className="block text-[12px] font-semibold text-[#15140F] mb-2">Vehicle plate <span className="text-[#A8A398] font-normal">(optional)</span></label>
                     <input 
                       type="text" 
                       value={newRiderPlateNumber}
                       onChange={(e) => setNewRiderPlateNumber(e.target.value)}
                       placeholder="ABC-123"
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-nomba-yellow focus:border-nomba-yellow outline-none transition-all"
+                      className="w-full px-4 py-2.5 bg-[#F7F4EC] border border-[#EAEAEA] rounded-[8px] text-[13px] text-[#15140F] placeholder-[#A8A398] focus:outline-none focus:border-[#15140F] transition-colors"
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Rider Photo (Optional)</label>
-                  <div className="relative flex items-center gap-3">
-                    <div className="relative flex-1">
-                      <ImageIcon className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
+
+                <div className="pt-2">
+                  <label className="block text-[12px] font-semibold text-[#15140F] mb-3">Rider photo <span className="text-[#A8A398] font-normal">(optional)</span></label>
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
                       <input 
                         type="file" 
                         accept="image/*"
                         onChange={(e) => handleImageUpload(e, false)}
-                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-nomba-yellow file:text-nomba-dark transition-all cursor-pointer"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                       />
+                      <button type="button" className="bg-[#15140F] text-white py-1.5 px-4 rounded-full text-[12px] font-bold">
+                        Choose file
+                      </button>
                     </div>
-                    {isUploadingImage && <Loader2 className="w-5 h-5 animate-spin text-slate-400" />}
+                    <span className="text-[12px] text-[#A8A398]">JPG or PNG, max 5MB</span>
+                    
+                    {isUploadingImage && <Loader2 className="w-4 h-4 animate-spin text-[#A8A398] ml-2" />}
                     {newRiderImageUrl && !isUploadingImage && (
-                      <img src={newRiderImageUrl} alt="Rider" className="w-12 h-12 object-cover rounded-lg border border-slate-200 shadow-sm" />
+                      <img src={newRiderImageUrl} alt="Rider" className="w-8 h-8 object-cover rounded-full border border-[#EAEAEA] ml-2" />
                     )}
                   </div>
                 </div>
-                <button 
-                  type="submit"
-                  disabled={creatingRider || !newRiderEmail || !newRiderPassword || isUploadingImage}
-                  className="w-full py-3 bg-nomba-dark text-white font-bold rounded-xl disabled:opacity-50 flex items-center justify-center transition-colors"
-                >
-                  {creatingRider ? <Loader2 className="w-5 h-5 animate-spin" /> : "Create Rider Account"}
-                </button>
-              </form>
-            </div>
 
-            {/* Rider List */}
-            <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-              <h2 className="text-lg font-bold text-slate-900 mb-4">My Fleet ({riders.length})</h2>
-              {riders.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-slate-500">You haven't added any riders yet.</p>
+                <div className="pt-6 border-b border-[#EAEAEA] pb-8">
+                  <button 
+                    type="submit"
+                    disabled={creatingRider || !newRiderEmail || !newRiderPassword || isUploadingImage}
+                    className="w-full py-3.5 bg-[#FFCC00] hover:bg-[#F2C200] text-[#15140F] font-bold rounded-full disabled:opacity-50 flex items-center justify-center transition-colors shadow-[0_4px_14px_rgba(255,204,0,0.25)]"
+                  >
+                    {creatingRider ? <Loader2 className="w-5 h-5 animate-spin" /> : "Create rider account"}
+                  </button>
                 </div>
-              ) : (
-                <div className="divide-y divide-slate-100">
-                  {riders.map((r, i) => (
-                    <div key={i} className="py-4 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-slate-100 rounded-full overflow-hidden flex items-center justify-center shrink-0 border border-slate-200">
-                          {r.imageUrl ? (
-                            <img src={r.imageUrl} alt="Rider" className="w-full h-full object-cover" />
-                          ) : (
-                            <Users className="w-5 h-5 text-slate-500" />
-                          )}
+              </form>
+
+              {/* Rider List Section (inside the same card for seamless look as screenshot) */}
+              <div className="pt-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <h2 className="text-[14px] font-bold text-[#15140F]">My Fleet</h2>
+                  <div className="bg-[#F7F4EC] border border-[#EAEAEA] rounded-full px-2 py-0.5 text-[11px] font-semibold text-[#6E6B5E]">
+                    {riders.length}
+                  </div>
+                </div>
+
+                {riders.length === 0 ? (
+                  <div className="text-center py-4">
+                    <p className="text-[#A8A398] text-sm">You haven't added any riders yet.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {riders.map((r, i) => (
+                      <div key={i} className="flex items-center justify-between group">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 bg-[#F7F4EC] border border-[#EAEAEA] rounded-full overflow-hidden flex items-center justify-center shrink-0">
+                            {r.imageUrl ? (
+                              <img src={r.imageUrl} alt="Rider" className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-[12px] font-bold text-[#6E6B5E]">
+                                {r.name ? r.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : 'RD'}
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-[14px] font-bold text-[#15140F] leading-tight mb-0.5">{r.name || 'Unnamed Rider'}</p>
+                            <p className="text-[12px] text-[#A8A398] leading-tight">{r.email}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-slate-900">{r.name ? `${r.name} (${r.email})` : r.email}</p>
-                          <p className="text-xs text-slate-500">Added {new Date(r.createdAt).toLocaleDateString()}</p>
+                        
+                        <div className="flex items-center gap-6">
+                          <span className="text-[11px] font-medium text-[#A8A398]">Added {new Date(r.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                          
+                          <button 
+                            onClick={() => {
+                              setEditingRider(r);
+                              setEditRiderName(r.name || "");
+                              setEditRiderPassword("");
+                              setEditRiderPlateNumber(r.plateNumber || "");
+                              setEditRiderImageUrl(r.imageUrl || "");
+                            }}
+                            className="text-[#15140F] text-[13px] font-bold hover:underline transition-all"
+                          >
+                            Edit
+                          </button>
+                          
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 bg-[#4ADE80] rounded-full shadow-[0_0_8px_rgba(74,222,128,0.5)]"></div>
+                            <span className="text-[10px] font-bold text-[#4ADE80] tracking-wider">ACTIVE</span>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <button 
-                          onClick={() => {
-                            setEditingRider(r);
-                            setEditRiderName(r.name || "");
-                            setEditRiderPassword("");
-                            setEditRiderPlateNumber(r.plateNumber || "");
-                            setEditRiderImageUrl(r.imageUrl || "");
-                          }}
-                          className="text-nomba-dark text-sm font-medium hover:underline"
-                        >
-                          Edit
-                        </button>
-                        <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">
-                          Active
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         ) : activeTab === 'history' ? (
@@ -657,81 +702,77 @@ export default function RunnerDashboard() {
 
       {/* Edit Rider Modal */}
       {editingRider && (
-        <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl relative animate-in fade-in zoom-in duration-200">
-            <h2 className="text-xl font-bold text-slate-900 mb-6">Edit Rider</h2>
+        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="bg-[#F7F4EC] rounded-[24px] p-8 max-w-sm w-full shadow-2xl relative animate-in fade-in zoom-in duration-200">
+            <h2 className="text-[16px] font-bold text-[#15140F] mb-6">Edit Rider</h2>
             <form onSubmit={handleUpdateRider} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
-                <div className="relative">
-                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-                  <input
-                    type="text"
-                    value={editRiderName}
-                    onChange={(e) => setEditRiderName(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-nomba-dark focus:border-nomba-dark"
-                    required
-                  />
-                </div>
+                <label className="block text-[11px] font-medium text-[#A8A398] mb-1.5">Full name</label>
+                <input
+                  type="text"
+                  value={editRiderName}
+                  onChange={(e) => setEditRiderName(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-transparent border border-[#EAEAEA] rounded-[8px] text-[13px] text-[#15140F] focus:outline-none focus:border-[#15140F] transition-colors"
+                  required
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">New Password (Optional)</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-                  <input
-                    type="password"
-                    value={editRiderPassword}
-                    onChange={(e) => setEditRiderPassword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-nomba-dark focus:border-nomba-dark"
-                    placeholder="Leave blank to keep current"
-                  />
-                </div>
+                <label className="block text-[11px] font-medium text-[#A8A398] mb-1.5">New password</label>
+                <input
+                  type="password"
+                  value={editRiderPassword}
+                  onChange={(e) => setEditRiderPassword(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-transparent border border-[#EAEAEA] rounded-[8px] text-[13px] text-[#15140F] placeholder-[#A8A398] focus:outline-none focus:border-[#15140F] transition-colors font-mono tracking-widest"
+                  placeholder="Leave blank to keep current"
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Vehicle Plate Number (Optional)</label>
-                <div className="relative">
-                  <Car className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-                  <input
-                    type="text"
-                    value={editRiderPlateNumber}
-                    onChange={(e) => setEditRiderPlateNumber(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-nomba-dark focus:border-nomba-dark"
-                    placeholder="ABC-123"
-                  />
-                </div>
+                <label className="block text-[11px] font-medium text-[#A8A398] mb-1.5">Vehicle plate <span className="font-normal opacity-70">(optional)</span></label>
+                <input
+                  type="text"
+                  value={editRiderPlateNumber}
+                  onChange={(e) => setEditRiderPlateNumber(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-transparent border border-[#EAEAEA] rounded-[8px] text-[13px] text-[#15140F] placeholder-[#A8A398] focus:outline-none focus:border-[#15140F] transition-colors"
+                  placeholder="ABC-123"
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Rider Photo (Optional)</label>
-                <div className="relative flex items-center gap-3">
-                  <div className="relative flex-1">
-                    <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                <label className="block text-[11px] font-medium text-[#A8A398] mb-1.5">Rider photo <span className="font-normal opacity-70">(optional)</span></label>
+                <div className="flex items-center w-full px-2 py-2 bg-transparent border border-[#EAEAEA] rounded-[8px]">
+                  <div className="relative">
                     <input 
                       type="file" 
                       accept="image/*"
                       onChange={(e) => handleImageUpload(e, true)}
-                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-nomba-dark file:text-white transition-all cursor-pointer"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                     />
+                    <button type="button" className="bg-[#15140F] text-white py-1 px-3 rounded-[6px] text-[11px] font-medium mr-3">
+                      Choose File
+                    </button>
                   </div>
-                  {isUploadingImage && <Loader2 className="w-5 h-5 animate-spin text-slate-400" />}
+                  <span className="text-[12px] text-[#6E6B5E] flex-1">
+                    {isUploadingImage ? 'Uploading...' : editRiderImageUrl ? 'Image selected' : 'No file chosen'}
+                  </span>
                   {editRiderImageUrl && !isUploadingImage && (
-                    <img src={editRiderImageUrl} alt="Rider" className="w-10 h-10 object-cover rounded-lg border border-slate-200 shadow-sm" />
+                    <img src={editRiderImageUrl} alt="Rider" className="w-6 h-6 object-cover rounded-full ml-2" />
                   )}
                 </div>
               </div>
-              <div className="flex gap-3 mt-6">
+              
+              <div className="flex gap-4 mt-8 pt-2">
                 <button
                   type="button"
                   onClick={() => setEditingRider(null)}
-                  className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl transition-colors hover:bg-slate-200"
+                  className="px-8 py-2.5 bg-[#15140F] hover:bg-black text-white text-[13px] font-bold rounded-full transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={updatingRider || !editRiderName}
-                  className="flex-1 py-3 bg-nomba-dark text-white font-bold rounded-xl disabled:opacity-50 transition-colors"
+                  className="px-8 py-2.5 bg-[#FFCC00] hover:bg-[#F2C200] text-[#15140F] text-[13px] font-bold rounded-full disabled:opacity-50 transition-colors shadow-[0_4px_14px_rgba(255,204,0,0.2)]"
                 >
-                  {updatingRider ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Save Changes"}
+                  {updatingRider ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Save Changes"}
                 </button>
               </div>
             </form>

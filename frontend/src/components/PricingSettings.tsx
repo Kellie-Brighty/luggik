@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Loader2, Save, MapPin } from 'lucide-react';
 import { useJsApiLoader, Autocomplete, GoogleMap, Marker } from '@react-google-maps/api';
+import BankSelector from './BankSelector';
 
 const libraries: "places"[] = ["places"];
 const mapContainerStyle = {
@@ -31,6 +32,13 @@ export default function PricingSettings() {
   const [maxRadius, setMaxRadius] = useState<number>(30);
   const [message, setMessage] = useState<{type: 'success'|'error', text: string} | null>(null);
 
+  // Bank Details State
+  const [banks, setBanks] = useState<any[]>([]);
+  const [bankCode, setBankCode] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [accountName, setAccountName] = useState("");
+  const [verifyingAccount, setVerifyingAccount] = useState(false);
+
   const [autocomplete, setAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
   const geocoderRef = useRef<google.maps.Geocoder | null>(null);
 
@@ -47,6 +55,56 @@ export default function PricingSettings() {
   }, [isLoaded]);
 
   useEffect(() => {
+    const fetchBanks = async () => {
+      try {
+        const res = await fetch('/api/banks');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.data) {
+            setBanks(data.data);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch banks", err);
+      }
+    };
+    fetchBanks();
+  }, []);
+
+  useEffect(() => {
+    const verifyAccount = async () => {
+      if (accountNumber.length === 10 && bankCode) {
+        setVerifyingAccount(true);
+        setAccountName("");
+        try {
+          const res = await fetch('/api/banks/lookup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accountNumber, bankCode })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.data && data.data.accountName) {
+              setAccountName(data.data.accountName);
+            } else {
+              setAccountName("Account not found");
+            }
+          } else {
+            setAccountName("Verification failed");
+          }
+        } catch (err) {
+          setAccountName("Verification error");
+        } finally {
+          setVerifyingAccount(false);
+        }
+      } else {
+        setAccountName("");
+      }
+    };
+    verifyAccount();
+  }, [accountNumber, bankCode]);
+
+  useEffect(() => {
     if (!user) return;
     const fetchSettings = async () => {
       try {
@@ -57,10 +115,15 @@ export default function PricingSettings() {
             setBaseAddress(data.pricingSettings.baseAddress || "");
             setBaseLatitude(data.pricingSettings.baseLatitude || null);
             setBaseLongitude(data.pricingSettings.baseLongitude || null);
-            setBaseFare(data.pricingSettings.baseFare ? data.pricingSettings.baseFare.toLocaleString("en-US") : "1,500");
-            setBaseDistance(data.pricingSettings.baseDistance || 5);
-            setPerKmRate(data.pricingSettings.perKmRate ? data.pricingSettings.perKmRate.toLocaleString("en-US") : "100");
-            setMaxRadius(data.pricingSettings.maxRadius || 30);
+            setBaseFare(data.pricingSettings.baseFare !== undefined ? data.pricingSettings.baseFare.toLocaleString("en-US") : "1,500");
+            setBaseDistance(data.pricingSettings.baseDistance !== undefined ? data.pricingSettings.baseDistance : 5);
+            setPerKmRate(data.pricingSettings.perKmRate !== undefined ? data.pricingSettings.perKmRate.toLocaleString("en-US") : "100");
+            setMaxRadius(data.pricingSettings.maxRadius !== undefined ? data.pricingSettings.maxRadius : 30);
+          }
+          if (data.bankDetails) {
+            setBankCode(data.bankDetails.bankCode || "");
+            setAccountNumber(data.bankDetails.accountNumber || "");
+            setAccountName(data.bankDetails.accountName || "");
           }
         }
       } catch (err) {
@@ -143,7 +206,12 @@ export default function PricingSettings() {
           baseFare: Number(baseFare.replace(/,/g, "")),
           baseDistance: Number(baseDistance),
           perKmRate: Number(perKmRate.replace(/,/g, "")),
-          maxRadius: Number(maxRadius)
+          maxRadius: Number(maxRadius),
+          bankDetails: {
+            bankCode,
+            accountNumber,
+            accountName
+          }
         })
       });
       if (res.ok) {
@@ -290,6 +358,56 @@ export default function PricingSettings() {
                 required
               />
             </div>
+          </div>
+        </div>
+
+        {/* Bank Details */}
+        <div className="p-5 bg-slate-50 rounded-xl border border-slate-200">
+          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+            Bank Details (For Payouts)
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Bank</label>
+              <BankSelector 
+                banks={banks} 
+                value={bankCode} 
+                onChange={setBankCode} 
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Account Number</label>
+              <input
+                type="text"
+                maxLength={10}
+                value={accountNumber}
+                onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ''))}
+                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-nomba-yellow"
+                placeholder="0123456789"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Verified Account Name</label>
+              <div className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-600 flex items-center gap-2">
+                {verifyingAccount ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Verifying...</>
+                ) : (
+                  accountName || "Enter 10-digit account number to verify"
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-nomba-yellow/10 p-4 rounded-xl border border-nomba-yellow/20 flex items-start gap-3">
+          <div className="bg-nomba-yellow/20 p-1.5 rounded-full mt-0.5">
+            <svg className="w-4 h-4 text-nomba-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold text-nomba-dark">Luggik Commission</h4>
+            <p className="text-xs text-slate-600 mt-0.5">Luggik charges a 5% commission on the delivery fee for each completed errand. This will be automatically deducted before your payout is deposited to this account.</p>
           </div>
         </div>
 

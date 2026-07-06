@@ -110,11 +110,12 @@ export class ErrandModel {
     await this.syncPublicTracking(id);
   }
 
-  async assignActualRider(id: string, riderName: string, plateNumber?: string, imageUrl?: string): Promise<void> {
+  async assignActualRider(id: string, riderName: string, plateNumber?: string, imageUrl?: string, actualRiderId?: string): Promise<void> {
     const updates: any = {
       actualRiderName: riderName,
       updatedAt: FieldValue.serverTimestamp()
     };
+    if (actualRiderId) updates.actualRiderId = actualRiderId;
     if (plateNumber) updates.actualRiderPlateNumber = plateNumber;
     if (imageUrl) updates.actualRiderImageUrl = imageUrl;
     

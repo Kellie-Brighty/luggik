@@ -45,7 +45,8 @@ export default function BuyerCheckout() {
     return () => unsub();
   }, [id]);
 
-  const total = _liveErrand ? (Number(_liveErrand.priceAmount) + Number(_liveErrand.deliveryFee)) : 0;
+  const platformFee = 50;
+  const total = _liveErrand ? (Number(_liveErrand.priceAmount) + Number(_liveErrand.deliveryFee) + platformFee) : 0;
 
   const executeCancelOrder = async () => {
     if (!id) return;
@@ -145,6 +146,23 @@ export default function BuyerCheckout() {
             </div>
           )}
 
+          {_liveErrand && (
+            <div className="bg-[#F7F4EC] p-4 rounded-xl mb-6 border border-[#DDDDD8] flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] text-[#6E6B5E]">Item price</span>
+                <span className="text-[13px] font-medium text-[#0B0F0E]">₦{Number(_liveErrand.priceAmount).toLocaleString()}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] text-[#6E6B5E]">Delivery fee</span>
+                <span className="text-[13px] font-medium text-[#0B0F0E]">₦{Number(_liveErrand.deliveryFee).toLocaleString()}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] text-[#6E6B5E]">Platform fee</span>
+                <span className="text-[13px] font-medium text-[#0B0F0E]">₦{platformFee.toLocaleString()}</span>
+              </div>
+            </div>
+          )}
+
           {_liveErrand?.state === 'ESCROW_LOCKED' ? (
             <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4 flex flex-col items-center animate-in fade-in zoom-in duration-300">
               <CheckCircle2 className="w-8 h-8 text-green-500 mb-2" />
@@ -176,7 +194,7 @@ export default function BuyerCheckout() {
         </div>
         </div>
 
-        {trackingPin && _liveErrand.state !== 'PENDING_ESCROW' && (
+        {(trackingPin || _liveErrand?.trackingPin) && _liveErrand.state !== 'PENDING_ESCROW' && (
           <div className="bg-white rounded-3xl p-8 border border-[#EAEAEA] shadow-[0_2px_20px_rgba(0,0,0,0.03)] w-full max-w-md mx-auto text-left mt-6">
             <h3 className="text-xl font-bold text-[#111111] mb-2">Share with Vendor</h3>
             <p className="text-[#6E6B5E] text-sm mb-6">Send this secure link and PIN to the vendor so they can verify the escrow and track the rider.</p>
@@ -207,7 +225,7 @@ export default function BuyerCheckout() {
               <div>
                 <label className="block text-xs font-semibold text-[#111111] uppercase tracking-wider mb-2">Tracking PIN</label>
                 <div className="bg-[#F9F9F9] border border-[#EAEAEA] rounded-xl px-4 py-3 text-center">
-                  <span className="font-mono text-2xl tracking-[0.25em] font-bold text-[#4466b0]">{trackingPin}</span>
+                  <span className="font-mono text-2xl tracking-[0.25em] font-bold text-[#4466b0]">{trackingPin || _liveErrand?.trackingPin}</span>
                 </div>
               </div>
             </div>

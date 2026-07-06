@@ -1,9 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { auth } from "../firebase";
-import { Loader2, Eye, EyeOff, Check } from "lucide-react";
+import { Loader2, Eye, EyeOff}  from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import slideOne from "../assets/slide-one.png";
+import slideTwo from "../assets/slide-two.png";
+import slideThree from "../assets/slide-three.png";
+
+const slides = [slideOne, slideTwo, slideThree];
 
 export default function RunnerSignup() {
   const [email, setEmail] = useState("");
@@ -14,6 +19,15 @@ export default function RunnerSignup() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const { refreshKycStatus } = useAuth();
+
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,101 +87,45 @@ export default function RunnerSignup() {
 
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-[#F7F4EC] font-[Inter,sans-serif]">
-      {/* Left Column (Dark) */}
-      <div className="relative w-full lg:w-1/2 bg-[#15140F] min-h-[50vh] lg:min-h-screen flex flex-col justify-center overflow-hidden">
-        {/* Glow background */}
-        <div className="absolute right-[-20%] bottom-[-10%] w-[520px] h-[520px] bg-[radial-gradient(circle_at_50%_50%,rgba(255,204,0,0.13)_0%,rgba(0,0,0,0)_70%)] pointer-events-none rounded-full"></div>
-        
-        <div className="relative z-10 w-full max-w-[600px] mx-auto px-8 lg:px-20 py-12 flex flex-col h-full">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-3 mb-16 lg:mb-auto hover:opacity-90 transition-opacity">
-            <div className="w-[24px] h-[24px] bg-[#2A2925] rounded-[4px] flex items-center justify-center border border-[#3E3C36]">
-              <Check className="w-3.5 h-3.5 text-[#FFCC00]" strokeWidth={3} />
+      {/* Left Column (Image Carousel) */}
+      <div className="relative w-full lg:w-1/2 h-[40vh] lg:h-screen p-4 lg:p-6 flex flex-col">
+        <div className="relative w-full h-full rounded-[24px] overflow-hidden shadow-xl">
+          {slides.map((slide, index) => (
+            <div
+              key={index}
+              className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                index === currentSlide ? "opacity-100" : "opacity-0"
+              }`}
+            >
+              <img
+                src={slide}
+                alt={`Slide ${index + 1}`}
+                className="w-full h-full object-cover"
+              />
+              {/* Gradient overlay for text readability */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
             </div>
-            <span className="text-[18px] font-bold tracking-tight text-[#F7F4EC] font-['Space_Grotesk',sans-serif]">Luggik</span>
-          </Link>
+          ))}
 
-          <div className="mt-8 mb-auto">
-            {/* Runner portal badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[rgba(255,204,0,0.12)] border border-[rgba(255,204,0,0.25)] mb-8">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#FFCC00] shadow-[0_0_0_3px_rgba(255,204,0,0.22)]"></div>
-              <span className="text-[11px] font-mono text-[#FFCC00] uppercase tracking-[0.1em] pt-0.5">Runner portal</span>
-            </div>
-
-            <h1 className="text-[40px] leading-[44px] tracking-[-0.02em] font-bold text-[#F7F4EC] font-['Space_Grotesk',sans-serif] mb-6">
-              Deliver with confidence.<br/>Get paid on time.
+          {/* Text Overlay */}
+          <div className="absolute bottom-12 left-10 right-10 z-20">
+            <h1 className="text-[32px] md:text-[40px] leading-[1.1] tracking-[-0.02em] font-bold text-white font-['Space_Grotesk',sans-serif] mb-6">
+              Deliver with confidence.<br />Get paid on time.
             </h1>
-
-            <p className="text-[15px] leading-[24.75px] text-[#A8A398] mb-12">
-              Every errand you run is backed by funded escrow — your payment is locked in before you pick up, released the moment delivery is confirmed.
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-4 mb-16">
-              {/* Stat 1 */}
-              <div className="flex-1 bg-[rgba(247,244,236,0.05)] border border-[rgba(247,244,236,0.1)] rounded-[16px] p-5">
-                <div className="flex items-baseline mb-1">
-                  <span className="text-[24px] tracking-[-0.02em] font-bold text-[#F7F4EC] font-['Space_Grotesk',sans-serif]">6,400</span>
-                  <span className="text-[24px] tracking-[-0.02em] font-bold text-[#FFCC00] font-['Space_Grotesk',sans-serif] ml-1">+</span>
-                </div>
-                <p className="text-[12px] leading-[16.8px] text-[#A8A398]">Active runners on the network</p>
-              </div>
-
-              {/* Stat 2 */}
-              <div className="flex-1 bg-[rgba(247,244,236,0.05)] border border-[rgba(247,244,236,0.1)] rounded-[16px] p-5">
-                <div className="flex items-baseline mb-1">
-                  <span className="text-[24px] tracking-[-0.02em] font-bold text-[#F7F4EC] font-['Space_Grotesk',sans-serif]">99</span>
-                  <span className="text-[24px] tracking-[-0.02em] font-bold text-[#FFCC00] font-['Space_Grotesk',sans-serif] ml-1">%</span>
-                </div>
-                <p className="text-[12px] leading-[16.8px] text-[#A8A398]">Same-day payout rate</p>
-              </div>
+            
+            {/* Carousel Dots */}
+            <div className="flex items-center gap-2">
+              {slides.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentSlide(index)}
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    index === currentSlide ? "w-8 bg-white" : "w-2 bg-white/40 hover:bg-white/60"
+                  }`}
+                  aria-label={`Go to slide ${index + 1}`}
+                />
+              ))}
             </div>
-
-            {/* Track widget */}
-            <div className="bg-[rgba(247,244,236,0.04)] border border-[rgba(247,244,236,0.09)] rounded-[18px] p-5">
-              <div className="text-[10.5px] font-mono text-[#A8A398] uppercase tracking-[0.08em] mb-6">Live errand · ESC-04417</div>
-              
-              <div className="flex items-center justify-between relative px-2">
-                {/* Connecting lines */}
-                <div className="absolute left-6 right-6 top-[15px] h-[1.5px] -z-10 flex">
-                  <div className="w-1/3 h-full bg-[#FFCC00] opacity-60"></div>
-                  <div className="w-1/3 h-full bg-[#FFCC00] opacity-60"></div>
-                  <div className="w-1/3 h-full bg-[rgba(247,244,236,0.12)]"></div>
-                </div>
-
-                {/* Nodes */}
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-[32px] h-[32px] rounded-full bg-[#FFCC00] flex items-center justify-center">
-                    <Check className="w-[14px] h-[14px] text-[#15140F]" strokeWidth={3} />
-                  </div>
-                  <span className="text-[10px] font-mono text-[#FFCC00] uppercase tracking-[0.04em]">Funded</span>
-                </div>
-
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-[32px] h-[32px] rounded-full bg-[#FFCC00] flex items-center justify-center">
-                    <Check className="w-[14px] h-[14px] text-[#15140F]" strokeWidth={3} />
-                  </div>
-                  <span className="text-[10px] font-mono text-[#FFCC00] uppercase tracking-[0.04em]">Picked up</span>
-                </div>
-
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-[32px] h-[32px] rounded-full bg-[rgba(255,204,0,0.15)] border border-[#FFCC00] flex items-center justify-center">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#FFCC00]"></div>
-                  </div>
-                  <span className="text-[10px] font-mono text-[#A8A398] uppercase tracking-[0.04em]">In transit</span>
-                </div>
-
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-[32px] h-[32px] rounded-full bg-[rgba(247,244,236,0.08)] border border-[rgba(247,244,236,0.15)] flex items-center justify-center">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#A8A398" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                  </div>
-                  <span className="text-[10px] font-mono text-[#A8A398] uppercase tracking-[0.04em]">Released</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-8 text-[12.5px] text-[#A8A398]">
-            © 2026 Luggik · Secure Escrow & Logistics
           </div>
         </div>
       </div>

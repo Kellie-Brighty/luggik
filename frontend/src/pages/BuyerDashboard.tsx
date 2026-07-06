@@ -4,6 +4,8 @@ import { Box, MapPin, Loader2, Building2, Check, AlertTriangle } from "lucide-re
 import { useJsApiLoader, Autocomplete, GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api';
 import { db } from "../firebase";
 import { doc, getDoc } from "firebase/firestore";
+import { luggikMapStyle } from "../utils/mapStyles";
+import BankSelector from '../components/BankSelector';
 
 const libraries: "places"[] = ["places"];
 
@@ -20,6 +22,12 @@ export default function BuyerDashboard() {
   const [vendorEmail, setVendorEmail] = useState("");
   const [vendorPhone, setVendorPhone] = useState("");
   const [pickupAddress, setPickupAddress] = useState("");
+
+  const [vendorBankCode, setVendorBankCode] = useState("");
+  const [vendorAccountNumber, setVendorAccountNumber] = useState("");
+  const [vendorAccountName, setVendorAccountName] = useState("");
+  const [verifyingVendorAccount, setVerifyingVendorAccount] = useState(false);
+  const [banks, setBanks] = useState<any[]>([]);
 
   const [pickupCoords, setPickupCoords] = useState<{lat: number, lng: number} | null>(null);
   const [dropoffCoords, setDropoffCoords] = useState<{lat: number, lng: number} | null>(null);
@@ -50,7 +58,8 @@ export default function BuyerDashboard() {
 
   const itemPriceNum = Number(priceAmount.replace(/,/g, "")) || 0;
   const deliveryFeeNum = selectedQuote ? selectedQuote.priceAmount : 0;
-  const total = itemPriceNum + deliveryFeeNum;
+  const platformFee = 50;
+  const total = itemPriceNum + deliveryFeeNum + platformFee;
 
   useEffect(() => {
     const checkActiveErrands = async () => {
@@ -78,6 +87,54 @@ export default function BuyerDashboard() {
     };
     checkActiveErrands();
   }, []);
+
+  useEffect(() => {
+    const fetchBanks = async () => {
+      try {
+        const res = await fetch('/api/banks');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.data) setBanks(data.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch banks", err);
+      }
+    };
+    fetchBanks();
+  }, []);
+
+  useEffect(() => {
+    const verifyAccount = async () => {
+      if (vendorAccountNumber.length === 10 && vendorBankCode) {
+        setVerifyingVendorAccount(true);
+        setVendorAccountName("");
+        try {
+          const res = await fetch('/api/banks/lookup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accountNumber: vendorAccountNumber, bankCode: vendorBankCode })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.data && data.data.accountName) {
+              setVendorAccountName(data.data.accountName);
+            } else {
+              setVendorAccountName("Account not found");
+            }
+          } else {
+            setVendorAccountName("Verification failed");
+          }
+        } catch (err) {
+          setVendorAccountName("Verification error");
+        } finally {
+          setVerifyingVendorAccount(false);
+        }
+      } else {
+        setVendorAccountName("");
+      }
+    };
+    verifyAccount();
+  }, [vendorAccountNumber, vendorBankCode]);
 
   useEffect(() => {
     if (pickupCoords && dropoffCoords && isLoaded && window.google) {
@@ -209,6 +266,11 @@ export default function BuyerDashboard() {
         sellerEmail: vendorEmail,
         runnerId: selectedQuote.companyId,
         runnerCompanyName: selectedQuote.companyName,
+        vendorBankDetails: {
+          bankCode: vendorBankCode,
+          accountNumber: vendorAccountNumber,
+          accountName: vendorAccountName
+        }
       };
 
       const response = await fetch("/api/errands", {
@@ -480,6 +542,29 @@ export default function BuyerDashboard() {
               </div>
             </div>
 
+            {/* Map Visualizer */}
+            {isLoaded && (pickupCoords || dropoffCoords) && (
+              <div className="mb-10">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-7 h-7 rounded-full border border-[#DDDDD8] bg-[#F7F4EC] flex items-center justify-center text-[12px] font-medium text-[#6E6B5E]"><MapPin className="w-3.5 h-3.5" /></div>
+                  <span className="text-[12px] font-medium text-[#6E6B5E] tracking-[0.06em] uppercase">Route Map</span>
+                  <div className="flex-1 h-[1px] bg-[#DDDDD8]/50"></div>
+                </div>
+                <div className="border border-[#DDDDD8] rounded-[16px] overflow-hidden shadow-sm">
+                  <GoogleMap
+                    mapContainerStyle={{ width: '100%', height: '320px' }}
+                    center={pickupCoords || dropoffCoords || { lat: 6.5244, lng: 3.3792 }}
+                    zoom={12}
+                    options={{ disableDefaultUI: true, styles: luggikMapStyle }}
+                  >
+                    {directions && <DirectionsRenderer directions={directions} options={{ suppressMarkers: false, polylineOptions: { strokeColor: '#FFCC00', strokeWeight: 5 } }} />}
+                    {!directions && pickupCoords && <Marker position={pickupCoords} label="P" />}
+                    {!directions && dropoffCoords && <Marker position={dropoffCoords} label="D" />}
+                  </GoogleMap>
+                </div>
+              </div>
+            )}
+
             {/* Section 3 */}
             <div className="flex items-center gap-4 mb-6">
               <div className="w-7 h-7 rounded-full border border-[#DDDDD8] bg-[#F7F4EC] flex items-center justify-center text-[12px] font-medium text-[#6E6B5E]">3</div>
@@ -538,97 +623,42 @@ export default function BuyerDashboard() {
                   )}
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[13px] font-medium text-[#6E6B5E] mb-2">Vendor Bank</label>
+                  <BankSelector 
+                    banks={banks} 
+                    value={vendorBankCode} 
+                    onChange={setVendorBankCode} 
+                    className="w-full"
+                    buttonClassName="bg-[#F7F4EC] border border-[#DDDDD8] rounded-[12px] px-4 py-3.5 text-[15px] text-[#0B0F0E] font-medium focus:border-[#CCCCCC]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[13px] font-medium text-[#6E6B5E] mb-2">Account Number</label>
+                  <input
+                    type="text"
+                    maxLength={10}
+                    value={vendorAccountNumber}
+                    onChange={(e) => setVendorAccountNumber(e.target.value.replace(/\D/g, ''))}
+                    className="w-full bg-[#F7F4EC] border border-[#DDDDD8] rounded-[12px] px-4 py-3.5 text-[15px] text-[#0B0F0E] font-medium focus:outline-none focus:border-[#CCCCCC]"
+                    placeholder="0123456789"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[13px] font-medium text-[#6E6B5E] mb-2">Verified Account Name</label>
+                <div className="w-full bg-white border border-[#DDDDD8] rounded-[12px] px-4 py-3.5 text-[14px] text-[#A8A398] flex items-center gap-2">
+                  {verifyingVendorAccount ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Verifying...</>
+                  ) : (
+                    vendorAccountName || "Enter 10-digit account number to verify"
+                  )}
+                </div>
+              </div>
             </div>
 
-            {/* Map Visualizer */}
-            {isLoaded && (pickupCoords || dropoffCoords) && (
-              <div className="mb-10">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-7 h-7 rounded-full border border-[#DDDDD8] bg-[#F7F4EC] flex items-center justify-center text-[12px] font-medium text-[#6E6B5E]"><MapPin className="w-3.5 h-3.5" /></div>
-                  <span className="text-[12px] font-medium text-[#6E6B5E] tracking-[0.06em] uppercase">Route Map</span>
-                  <div className="flex-1 h-[1px] bg-[#DDDDD8]/50"></div>
-                </div>
-                <div className="border border-[#DDDDD8] rounded-[16px] overflow-hidden shadow-sm">
-                  <GoogleMap
-                    mapContainerStyle={{ width: '100%', height: '320px' }}
-                    center={pickupCoords || dropoffCoords || { lat: 6.5244, lng: 3.3792 }}
-                    zoom={12}
-                    options={{ disableDefaultUI: true }}
-                  >
-                    {directions && <DirectionsRenderer directions={directions} options={{ suppressMarkers: false, polylineOptions: { strokeColor: '#FFCC00', strokeWeight: 5 } }} />}
-                    {!directions && pickupCoords && <Marker position={pickupCoords} label="P" />}
-                    {!directions && dropoffCoords && <Marker position={dropoffCoords} label="D" />}
-                  </GoogleMap>
-                </div>
-              </div>
-            )}
-
-            {/* Quotes */}
-            {(pickupCoords && dropoffCoords) && (
-              <div>
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-7 h-7 rounded-full border border-[#DDDDD8] bg-[#F7F4EC] flex items-center justify-center text-[12px] font-medium text-[#6E6B5E]"><Box className="w-3.5 h-3.5" /></div>
-                  <span className="text-[12px] font-medium text-[#6E6B5E] tracking-[0.06em] uppercase">Delivery Quotes</span>
-                  <div className="flex-1 h-[1px] bg-[#DDDDD8]/50"></div>
-                </div>
-                
-                {fetchingQuotes ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-[#6E6B5E]">
-                    <Loader2 className="w-8 h-8 animate-spin text-[#0B0F0E] mb-4" />
-                    <p className="font-medium text-[14.5px]">Calculating route & finding partners...</p>
-                  </div>
-                ) : !quotes.length ? (
-                  <div className="bg-[#F7F4EC] border border-[#DDDDD8] text-center p-8 rounded-[16px]">
-                    <p className="text-[#0B0F0E] font-semibold text-[16px] mb-1">No delivery partners found</p>
-                    <p className="text-[14px] text-[#6E6B5E]">Try adjusting your pickup or dropoff locations.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    <div className="space-y-3">
-                      {quotes.map((q, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => setSelectedQuote(q)}
-                          className={`w-full p-4 rounded-[14px] border text-left flex items-center justify-between transition-all ${selectedQuote?.companyId === q.companyId ? 'border-[#0B0F0E] bg-[#F7F4EC] ring-1 ring-[#0B0F0E]' : 'border-[#DDDDD8] hover:border-[#CCCCCC] bg-transparent'}`}
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="w-11 h-11 bg-white border border-[#DDDDD8] rounded-full flex items-center justify-center shrink-0 shadow-sm">
-                              <Building2 className="w-5 h-5 text-[#0B0F0E]" />
-                            </div>
-                            <div>
-                              <p className="font-semibold text-[15px] text-[#0B0F0E]">{q.companyName}</p>
-                              <p className="text-[13px] text-[#6E6B5E] mt-0.5">{q.distanceKm} km routing distance</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-bold text-[#0B0F0E] text-[18px]">₦{q.priceAmount.toLocaleString()}</p>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-
-                    {selectedQuote && (
-                      <div className="mt-8 pt-6 border-t border-[#DDDDD8]/60 flex flex-col items-end">
-                        <button 
-                          type="button" 
-                          onClick={handlePayAndCreate}
-                          disabled={loading} 
-                          className="w-full sm:w-auto bg-luggik-yellow text-[#0B0F0E] px-8 py-3.5 rounded-full font-semibold text-[15px] hover:brightness-105 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0px_8px_16px_-6px_rgba(255,204,0,0.4)]"
-                        >
-                          {loading && <Loader2 className="w-5 h-5 animate-spin" />}
-                          Pay & Lock Escrow
-                        </button>
-                        <p className="text-[12px] text-[#A8A398] mt-4 flex items-center gap-1">
-                          🔒 Secured by Nomba Trust Engine
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-            
             {/* Fallback button if coords not selected */}
             {!pickupCoords || !dropoffCoords ? (
               <div className="flex justify-end pt-4">
@@ -640,31 +670,100 @@ export default function BuyerDashboard() {
 
           </div>
           
-          {/* Right Column - Summary */}
-          <div className="w-full lg:w-[420px] bg-[#15140F] rounded-[24px] p-8 text-[#F7F4EC] shadow-xl sticky top-8">
-            <h3 className="text-[17px] font-bold mb-3 font-['Space_Grotesk',sans-serif]">Escrow summary</h3>
-            <p className="text-[13px] text-[#A8A398] leading-[1.6] mb-8">
-              This is what gets locked in escrow. Funds are released to the vendor only after you confirm delivery.
-            </p>
+          {/* Right Column */}
+          <div className="w-full lg:w-[420px] flex flex-col sticky top-8">
+            {/* Escrow summary */}
+            <div className="bg-[#15140F] rounded-[24px] p-8 text-[#F7F4EC] shadow-xl">
+              <h3 className="text-[17px] font-bold mb-3 font-['Space_Grotesk',sans-serif]">Escrow summary</h3>
+              <p className="text-[13px] text-[#A8A398] leading-[1.6] mb-8">
+                This is what gets locked in escrow. Funds are released to the vendor only after you confirm delivery.
+              </p>
 
-            <div className="flex flex-col">
-              <div className="flex items-center justify-between py-4 border-b border-white/10">
-                <span className="text-[13px] text-[#A8A398]">Item cost</span>
-                <span className="text-[14px] font-semibold">₦{itemPriceNum.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center justify-between py-4 border-b border-white/10">
-                <span className="text-[13px] text-[#A8A398]">Delivery fee</span>
-                <span className="text-[14px] font-semibold">{selectedQuote ? `₦${deliveryFeeNum.toLocaleString()}` : "-"}</span>
-              </div>
-              <div className="flex items-center justify-between py-4 border-b border-white/10">
-                <span className="text-[13px] text-[#A8A398]">Vendor</span>
-                <span className="text-[13px] font-medium truncate max-w-[150px] text-right">{vendorName || "-"}</span>
-              </div>
-              <div className="flex items-center justify-between py-5">
-                <span className="text-[14px] font-medium text-white">Total lock</span>
-                <span className="text-[24px] font-bold text-luggik-yellow font-['Space_Grotesk',sans-serif]">₦{total.toLocaleString()}</span>
+              <div className="flex flex-col">
+                <div className="flex items-center justify-between py-4 border-b border-white/10">
+                  <span className="text-[13px] text-[#A8A398]">Item cost</span>
+                  <span className="text-[14px] font-semibold">₦{itemPriceNum.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between py-4 border-b border-white/10">
+                  <span className="text-[13px] text-[#A8A398]">Delivery fee</span>
+                  <span className="text-[14px] font-semibold">{selectedQuote ? `₦${deliveryFeeNum.toLocaleString()}` : "-"}</span>
+                </div>
+                <div className="flex items-center justify-between py-4 border-b border-white/10">
+                  <span className="text-[13px] text-[#A8A398]">Platform fee</span>
+                  <span className="text-[14px] font-semibold">₦{platformFee.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between py-4 border-b border-white/10">
+                  <span className="text-[13px] text-[#A8A398]">Vendor</span>
+                  <span className="text-[13px] font-medium truncate max-w-[150px] text-right">{vendorName || "-"}</span>
+                </div>
+                <div className="flex items-center justify-between py-5">
+                  <span className="text-[14px] font-medium text-white">Total lock</span>
+                  <span className="text-[24px] font-bold text-luggik-yellow font-['Space_Grotesk',sans-serif]">₦{total.toLocaleString()}</span>
+                </div>
               </div>
             </div>
+
+            {/* Logistics Suggestions */}
+            {(pickupCoords && dropoffCoords) && (
+              <div className="bg-[#15140F] rounded-[24px] p-8 mt-6 shadow-xl text-[#F7F4EC]">
+                <h3 className="text-[17px] font-bold mb-6 text-[#F7F4EC] font-['Space_Grotesk',sans-serif]">Delivery Quotes</h3>
+                
+                {fetchingQuotes ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-[#A8A398]">
+                    <Loader2 className="w-8 h-8 animate-spin text-[#F7F4EC] mb-4" />
+                    <p className="font-medium text-[14.5px]">Calculating route...</p>
+                  </div>
+                ) : !quotes.length ? (
+                  <div className="bg-[#1C1B18] border border-white/10 text-center p-8 rounded-[16px]">
+                    <p className="text-[#F7F4EC] font-semibold text-[16px] mb-1">No delivery partners found</p>
+                    <p className="text-[14px] text-[#A8A398]">Try adjusting locations.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="space-y-3">
+                      {quotes.map((q, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setSelectedQuote(q)}
+                          className={`w-full p-4 rounded-[14px] border text-left flex items-center justify-between gap-4 transition-all ${selectedQuote?.companyId === q.companyId ? 'border-luggik-yellow bg-[#1C1B18] ring-1 ring-luggik-yellow' : 'border-white/10 hover:border-white/20 bg-transparent'}`}
+                        >
+                          <div className="flex items-center gap-4 flex-1 min-w-0">
+                            <div className={`w-11 h-11 bg-[#1C1B18] border rounded-full flex items-center justify-center shrink-0 shadow-sm transition-colors ${selectedQuote?.companyId === q.companyId ? 'border-luggik-yellow/30' : 'border-white/10'}`}>
+                              <Building2 className={`w-5 h-5 ${selectedQuote?.companyId === q.companyId ? 'text-luggik-yellow' : 'text-[#F7F4EC]'}`} />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-[15px] text-[#F7F4EC] truncate">{q.companyName}</p>
+                              <p className="text-[13px] text-[#A8A398] mt-0.5">{q.distanceKm} km</p>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="font-bold text-luggik-yellow text-[18px] font-['Space_Grotesk',sans-serif]">₦{q.priceAmount.toLocaleString()}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+
+                    {selectedQuote && (
+                      <div className="mt-8 pt-6 border-t border-white/10 flex flex-col">
+                        <button 
+                          type="button" 
+                          onClick={handlePayAndCreate}
+                          disabled={loading} 
+                          className="w-full bg-luggik-yellow text-[#0B0F0E] px-8 py-3.5 rounded-full font-semibold text-[15px] hover:brightness-105 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0px_8px_16px_-6px_rgba(255,204,0,0.4)]"
+                        >
+                          {loading && <Loader2 className="w-5 h-5 animate-spin" />}
+                          Pay & Lock Escrow
+                        </button>
+                        <p className="text-[12px] text-[#A8A398] mt-4 flex items-center justify-center gap-1">
+                          🔒 Secured by Nomba Trust Engine
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
         </div>

@@ -117,7 +117,7 @@ export const updateRider = async (req: Request, res: Response): Promise<void> =>
 
 export const updateSettings = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { companyId, baseAddress, baseLatitude, baseLongitude, baseFare, baseDistance, perKmRate, maxRadius } = req.body;
+    const { companyId, baseAddress, baseLatitude, baseLongitude, baseFare, baseDistance, perKmRate, maxRadius, bankDetails } = req.body;
 
     if (!companyId) {
       res.status(400).json({ error: 'Missing companyId' });
@@ -136,6 +136,10 @@ export const updateSettings = async (req: Request, res: Response): Promise<void>
         maxRadius
       }
     };
+
+    if (bankDetails) {
+      updates.bankDetails = bankDetails;
+    }
 
     await db.collection('users').doc(companyId).set(updates, { merge: true });
 
@@ -162,7 +166,10 @@ export const getSettings = async (req: Request, res: Response): Promise<void> =>
     }
 
     const data = doc.data();
-    res.status(200).json({ pricingSettings: data?.pricingSettings || null });
+    res.status(200).json({ 
+      pricingSettings: data?.pricingSettings || null,
+      bankDetails: data?.bankDetails || null
+    });
   } catch (error: any) {
     console.error('Error fetching settings:', error);
     res.status(500).json({ error: error.message });

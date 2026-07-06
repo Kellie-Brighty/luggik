@@ -151,7 +151,80 @@ class NombaService {
       throw error;
     }
   }
+
+  async getBanks(): Promise<any> {
+    if (this.state === 'UNAUTHENTICATED' || !this.accessToken) {
+      const authenticated = await this.authenticate();
+      if (!authenticated) throw new Error('Failed to authenticate with Nomba');
+    }
+
+    try {
+      const response = await axios.get(`${this.baseUrl}/transfers/banks`, {
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'accountId': this.accountId,
+          'Content-Type': 'application/json'
+        }
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching banks from Nomba:', error.response ? error.response.data : error.message);
+      throw error;
+    }
+  }
+
+  async lookupAccount(accountNumber: string, bankCode: string): Promise<any> {
+    if (this.state === 'UNAUTHENTICATED' || !this.accessToken) {
+      const authenticated = await this.authenticate();
+      if (!authenticated) throw new Error('Failed to authenticate with Nomba');
+    }
+
+    try {
+      const response = await axios.post(`${this.baseUrl}/transfers/bank/lookup`, {
+        accountNumber,
+        bankCode
+      }, {
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'accountId': this.accountId,
+          'Content-Type': 'application/json'
+        }
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Error looking up account from Nomba:', error.response ? error.response.data : error.message);
+      throw error;
+    }
+  }
+  async transferToBank(amount: number, accountNumber: string, accountName: string, bankCode: string, merchantTxRef: string, narration: string, senderName: string = 'Luggik'): Promise<any> {
+    if (this.state === 'UNAUTHENTICATED' || !this.accessToken) {
+      const authenticated = await this.authenticate();
+      if (!authenticated) throw new Error('Failed to authenticate with Nomba');
+    }
+
+    try {
+      const subAccountId = process.env.NOMBA_SUB_ACCOUNT_ID || 'e3b59182-b814-4d74-9ee6-f679c5f724ab';
+      const response = await axios.post(`https://api.nomba.com/v2/transfers/bank/${subAccountId}`, {
+        amount,
+        accountNumber,
+        accountName,
+        bankCode,
+        merchantTxRef,
+        senderName,
+        narration
+      }, {
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'accountId': this.accountId,
+          'Content-Type': 'application/json'
+        }
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Error transferring to bank via Nomba:', error.response ? error.response.data : error.message);
+      throw error;
+    }
+  }
 }
 
-export const nombaService = new NombaService(); 
-export default nombaService;
+export default new NombaService();

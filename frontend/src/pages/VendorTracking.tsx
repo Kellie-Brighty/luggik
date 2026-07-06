@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { signInAnonymously, onAuthStateChanged } from "firebase/auth";
 import { db, auth } from "../firebase";
+import { luggikMapStyle } from "../utils/mapStyles";
 
 const libraries: ("places" | "geometry")[] = ["places", "geometry"];
 
@@ -159,9 +160,7 @@ export default function VendorTracking() {
           options={{
             disableDefaultUI: true,
             zoomControl: true,
-            styles: [
-              { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] }
-            ]
+            styles: luggikMapStyle
           }}
         >
           {/* We only show the pickup marker here to protect the buyer's dropoff location */}
