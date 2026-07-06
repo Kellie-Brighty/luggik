@@ -1,4 +1,4 @@
-# Luggik 🚚
+# <img src="frontend/public/favicon.svg" width="32" height="32" align="top" /> Luggik
 
 **Luggik** is a secure, local delivery dispatch and escrow platform designed specifically to bridge the trust gap in the Nigerian e-commerce and logistics market. 
 
