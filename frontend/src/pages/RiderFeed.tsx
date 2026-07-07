@@ -1,8 +1,9 @@
 import { Loader2, AlertCircle, LogOut, CheckCircle2, Check, Lock, Package, MapPin } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { formatRelativeTime } from "../utils/timeUtils";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { notificationSound } from "../utils/audio";
 import { signOut } from "firebase/auth";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { auth, db } from "../firebase";
@@ -27,6 +28,7 @@ export default function RiderFeed() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const prevErrandsLengthRef = useRef(0);
   const navigate = useNavigate();
   const { user, role, companyId } = useAuth();
 
@@ -85,6 +87,12 @@ export default function RiderFeed() {
         return timeB - timeA;
       });
 
+      // Play sound if new errands were added
+      if (errandsData.length > prevErrandsLengthRef.current && prevErrandsLengthRef.current !== 0) {
+        notificationSound.playDouble();
+      }
+      prevErrandsLengthRef.current = errandsData.length;
+
       setErrands(errandsData);
       setLoading(false);
       setError(null);
@@ -142,19 +150,19 @@ export default function RiderFeed() {
       </header>
 
       <div className="flex-1 w-full max-w-4xl mx-auto px-6 py-12">
-        <div className="flex items-center gap-3 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-8">
           <h1 className="text-[20px] font-bold text-[#15140F] font-['Space_Grotesk',sans-serif]">Rider feed</h1>
-          <div className="flex bg-[#EAEAEA] rounded-full p-1 ml-auto">
+          <div className="flex bg-[#EAEAEA] rounded-full p-1 sm:ml-auto w-full sm:w-auto">
             <button
               onClick={() => setActiveTab('available')}
-              className={`px-4 py-1.5 rounded-full text-[13px] font-bold transition-colors ${activeTab === 'available' ? 'bg-white text-[#15140F] shadow-sm' : 'text-[#6E6B5E] hover:text-[#15140F]'}`}
+              className={`flex-1 sm:flex-none px-4 py-1.5 rounded-full text-[13px] font-bold transition-colors ${activeTab === 'available' ? 'bg-white text-[#15140F] shadow-sm' : 'text-[#6E6B5E] hover:text-[#15140F]'}`}
             >
               Available
               {activeTab === 'available' && <span className="ml-2 bg-[#F7F4EC] text-[#15140F] px-1.5 py-0.5 rounded-full text-[10px]">{errands.length}</span>}
             </button>
             <button
               onClick={() => setActiveTab('history')}
-              className={`px-4 py-1.5 rounded-full text-[13px] font-bold transition-colors ${activeTab === 'history' ? 'bg-white text-[#15140F] shadow-sm' : 'text-[#6E6B5E] hover:text-[#15140F]'}`}
+              className={`flex-1 sm:flex-none px-4 py-1.5 rounded-full text-[13px] font-bold transition-colors ${activeTab === 'history' ? 'bg-white text-[#15140F] shadow-sm' : 'text-[#6E6B5E] hover:text-[#15140F]'}`}
             >
               History
             </button>
@@ -208,9 +216,9 @@ export default function RiderFeed() {
 
           {errands.map(errand => (
             <div key={errand.id} className="bg-white rounded-[24px] p-6 border border-[#EAEAEA] shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col gap-6">
-              <div className="flex justify-between items-start">
-                <h3 className="font-bold text-[#15140F] text-[16px]">{errand.itemName}</h3>
-                <div className="text-right">
+              <div className="flex justify-between items-start gap-4">
+                <h3 className="font-bold text-[#15140F] text-[16px] min-w-0">{errand.itemName}</h3>
+                <div className="text-right shrink-0">
                   <span className="text-[10px] font-mono text-[#A8A398] uppercase tracking-wider block mb-1">DELIVERY FEE</span>
                   <span className="text-[18px] font-bold text-[#15140F] leading-none">₦{errand.deliveryFee?.toLocaleString() || "2,400"}</span>
                 </div>
@@ -276,8 +284,8 @@ export default function RiderFeed() {
             
             {historyErrands.map(errand => (
               <div key={errand.id} className="bg-white rounded-[24px] p-6 border border-[#EAEAEA] shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col gap-4 hover:border-[#DDDDD8] transition-colors cursor-pointer" onClick={() => navigate(`/runner/tracking/${errand.id}`)}>
-                <div className="flex justify-between items-start">
-                  <div>
+                <div className="flex justify-between items-start gap-4">
+                  <div className="min-w-0">
                     <h3 className="font-bold text-[#15140F] text-[16px] mb-1">{errand.itemName}</h3>
                     <p className="text-[#8A8165] text-[13px] font-medium">{formatRelativeTime(errand.createdAt)}</p>
                   </div>

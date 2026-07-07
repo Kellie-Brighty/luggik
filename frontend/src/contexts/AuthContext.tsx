@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { type User, onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../firebase';
 import { Loader2, Package } from 'lucide-react';
+import { requestPushPermission, setupForegroundMessageListener } from '../utils/pushNotifications';
 
 interface AuthContextType {
   user: User | null;
@@ -63,6 +64,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(currentUser);
       if (currentUser && !currentUser.isAnonymous) {
         await fetchKycStatus(currentUser.uid);
+        
+        // Handle FCM token
+        setTimeout(async () => {
+          setupForegroundMessageListener();
+          // We will use import.meta.env.VITE_VAPID_KEY which the user will provide later
+          const vapidKey = import.meta.env.VITE_VAPID_KEY;
+          if (vapidKey) {
+            const token = await requestPushPermission(vapidKey);
+            if (token) {
+              // Send token to backend
+              fetch('/api/users/fcm-token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid: currentUser.uid, token })
+              }).catch(err => console.error('Failed to save FCM token', err));
+            }
+          }
+        }, 2000);
+        
       } else {
         setKycStatus(null);
         setCompanyName(null);

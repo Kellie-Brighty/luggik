@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getMessaging } from "firebase/messaging";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -15,3 +16,11 @@ const firebaseConfig = {
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+let messagingInstance: any = null;
+try {
+  messagingInstance = getMessaging(app);
+} catch (e) {
+  console.log("Firebase Messaging not supported in this environment");
+}
+export const messaging = messagingInstance;

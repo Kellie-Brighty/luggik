@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import Dojah from 'dojah-kyc-sdk-react';
 import { ShieldCheck, Loader2, Check } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { auth } from '../firebase';
 
 export default function RunnerKyc() {
   const navigate = useNavigate();
@@ -11,6 +12,7 @@ export default function RunnerKyc() {
   const [kycCompleted, setKycCompleted] = useState(false);
   const [showWidget, setShowWidget] = useState(false);
   const [kycSubmitted, setKycSubmitted] = useState(false);
+  const [kycError, setKycError] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (!user) {
@@ -38,6 +40,10 @@ export default function RunnerKyc() {
     if (kycStatus === 'approved' && kycSubmitted) {
       setKycCompleted(true);
       setTimeout(() => navigate('/runner'), 2000);
+    } else if (kycStatus === 'rejected' && kycSubmitted) {
+      setKycSubmitted(false);
+      setShowWidget(false);
+      setKycError("Verification was rejected by the provider. Please check your documents and try again.");
     }
   }, [kycStatus, kycSubmitted, navigate]);
 
@@ -52,6 +58,8 @@ export default function RunnerKyc() {
     } else if (type === 'error') {
       console.error('Dojah verification failed', data);
       setShowWidget(false);
+      setKycSubmitted(false);
+      setKycError("Verification failed. Please check your documents and try again.");
     } else if (type === 'close') {
       console.log('Dojah widget closed');
       setShowWidget(false);
@@ -81,6 +89,12 @@ export default function RunnerKyc() {
         <p className="text-[14.5px] text-[#6E6B5E] leading-[22px] mb-8">
           To ensure the safety of our escrow platform, all logistics partners must complete business identity verification before accepting deliveries.
         </p>
+
+        {kycError && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-[13px] font-medium text-left">
+            {kycError}
+          </div>
+        )}
         
         {kycSubmitted ? (
           <div className="py-6 border-t border-[rgba(11,15,14,0.06)]">
@@ -103,7 +117,10 @@ export default function RunnerKyc() {
           </div>
         ) : (
           <button
-            onClick={() => setShowWidget(true)}
+            onClick={() => {
+              setKycError(null);
+              setShowWidget(true);
+            }}
             className="w-full bg-[#0B0F0E] text-white py-[14px] rounded-xl text-[14.5px] font-semibold hover:bg-black transition-colors shadow-sm"
           >
             Start Verification
@@ -121,13 +138,22 @@ export default function RunnerKyc() {
         <div className="absolute right-[-20%] bottom-[-10%] w-[520px] h-[520px] bg-[radial-gradient(circle_at_50%_50%,rgba(255,204,0,0.13)_0%,rgba(0,0,0,0)_70%)] pointer-events-none rounded-full"></div>
         
         <div className="relative z-10 w-full max-w-[600px] mx-auto px-8 lg:px-20 py-12 flex flex-col h-full">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-3 mb-16 lg:mb-auto hover:opacity-90 transition-opacity">
-            <div className="w-[24px] h-[24px] bg-[#2A2925] rounded-[4px] flex items-center justify-center border border-[#3E3C36]">
-              <Check className="w-3.5 h-3.5 text-[#FFCC00]" strokeWidth={3} />
-            </div>
-            <span className="text-[18px] font-bold tracking-tight text-[#F7F4EC] font-['Space_Grotesk',sans-serif]">Luggik</span>
-          </Link>
+          {/* Logo & Logout */}
+          <div className="flex items-center justify-between mb-16 lg:mb-auto">
+            <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
+              <div className="w-[24px] h-[24px] bg-[#2A2925] rounded-[4px] flex items-center justify-center border border-[#3E3C36]">
+                <Check className="w-3.5 h-3.5 text-[#FFCC00]" strokeWidth={3} />
+              </div>
+              <span className="text-[18px] font-bold tracking-tight text-[#F7F4EC] font-['Space_Grotesk',sans-serif]">Luggik</span>
+            </Link>
+            
+            <button 
+              onClick={() => auth.signOut()}
+              className="text-[#A8A398] hover:text-[#F7F4EC] text-[13px] font-medium transition-colors"
+            >
+              Logout
+            </button>
+          </div>
 
           <div className="mt-8 mb-auto">
             {/* Runner portal badge */}

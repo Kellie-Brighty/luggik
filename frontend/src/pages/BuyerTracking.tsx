@@ -1,6 +1,6 @@
 import { ArrowLeft, Loader2, Package, CheckSquare, Truck, CheckCheck, MapPin, CheckCircle2, XCircle, CheckCircle, Copy, Check, QrCode } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { signInAnonymously, onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot, collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { QRCodeSVG } from "qrcode.react";
@@ -39,6 +39,8 @@ export default function BuyerTracking() {
   const [updating, setUpdating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
+  const [isDrawerMinimized, setIsDrawerMinimized] = useState(false);
+  const qrRef = useRef<HTMLDivElement>(null);
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
@@ -80,6 +82,16 @@ export default function BuyerTracking() {
       unsubTracking();
     };
   }, [id]);
+
+  // Scroll to QR code when arrived at dropoff
+  useEffect(() => {
+    if (errand?.state === 'ARRIVED_AT_DROPOFF' && qrRef.current) {
+      setTimeout(() => {
+        setIsDrawerMinimized(false); // Ensure drawer is open
+        qrRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 500); // Small delay to let the UI render the QR code section first
+    }
+  }, [errand?.state]);
 
   useEffect(() => {
     if (errand?.pickupLocation?.latitude && errand?.dropoffLocation?.latitude && isLoaded && window.google) {
@@ -152,19 +164,104 @@ export default function BuyerTracking() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans p-6">
-      <div className="max-w-2xl mx-auto">
-        <header className="flex items-center justify-between mb-8">
+    <div className="min-h-screen bg-slate-50 font-sans p-0 lg:p-6 flex flex-col relative overflow-hidden lg:overflow-visible">
+      
+      {/* MOBILE FULL-SCREEN MAP */}
+      <div 
+        className="fixed inset-0 z-0 lg:hidden"
+        onClick={() => setIsDrawerMinimized(true)}
+        onTouchStart={() => setIsDrawerMinimized(true)}
+      >
+        {isLoaded ? (
+          <GoogleMap
+            mapContainerStyle={{ width: '100%', height: '100%' }}
+            center={tracking ? { lat: tracking.latitude, lng: tracking.longitude } : errand?.pickupLocation ? { lat: errand.pickupLocation.latitude, lng: errand.pickupLocation.longitude } : { lat: 6.5244, lng: 3.3792 }}
+            zoom={tracking ? 15 : 12}
+            options={{ disableDefaultUI: true, zoomControl: false, styles: luggikMapStyle, gestureHandling: 'greedy' }}
+          >
+            {directions && <DirectionsRenderer directions={directions} options={{ suppressMarkers: false, polylineOptions: { strokeColor: '#f2c94c', strokeWeight: 5 } }} />}
+            {tracking && <Marker position={{ lat: tracking.latitude, lng: tracking.longitude }} label="🚚" zIndex={999} />}
+          </GoogleMap>
+        ) : (
+          <div className="w-full h-full bg-slate-200 flex flex-col items-center justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-nomba-yellow mb-2" />
+          </div>
+        )}
+
+        {/* Overlay Status for Map Background */}
+        {['CREATED', 'ESCROW_LOCKED', 'DELIVERED', 'REJECTED_BY_BUYER', 'CANCELLED', 'COMPLETED'].includes(errand.state) && (
+          <div className="absolute top-12 left-4 right-4 flex flex-col items-center justify-start z-10 pointer-events-none">
+            {errand.state === 'DELIVERED' ? (
+              <div className="flex flex-col items-center">
+                <div className="bg-white px-4 py-2 rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.12)] flex items-center gap-2 text-green-700 border border-green-100">
+                  <CheckCircle2 className="w-5 h-5" />
+                  <p className="font-semibold text-sm">Package Delivered Successfully</p>
+                </div>
+              </div>
+            ) : errand.state === 'REJECTED_BY_BUYER' ? (
+              <div className="flex flex-col items-center">
+                <div className="bg-white px-4 py-2 rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.12)] flex items-center gap-2 text-red-600 border border-red-100">
+                  <XCircle className="w-5 h-5" />
+                  <p className="font-semibold text-sm">Errand Cancelled</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center animate-in slide-in-from-top-4 fade-in duration-500">
+                <div className="bg-white px-4 py-2.5 rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.12)] flex items-center gap-2 text-slate-700 border border-slate-100">
+                  <MapPin className="w-4 h-4 text-slate-400" />
+                  <p className="font-semibold text-[13px]">Live tracking will appear during transit</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* DESKTOP HEADER */}
+      <div className="hidden lg:block max-w-2xl mx-auto w-full relative z-10 mb-6">
+        <header className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button onClick={() => navigate('/buyer')} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500">
+            <button onClick={() => navigate('/buyer')} className="p-2 bg-white hover:bg-slate-100 rounded-full shadow-sm border border-slate-200 transition-colors text-slate-700">
               <ArrowLeft className="w-6 h-6" />
             </button>
             <h1 className="text-2xl font-bold text-slate-900">Track Order</h1>
           </div>
-          <div className="text-sm font-mono text-slate-500">
+          <div className="text-sm font-mono text-slate-600 bg-white px-3 py-1 rounded-full shadow-sm border border-slate-200">
             ID: {errand.id.substring(0, 8)}...
           </div>
         </header>
+      </div>
+
+      {/* DRAWER CONTAINER */}
+      <div className={`
+        fixed bottom-0 left-0 right-0 z-40 bg-slate-50 lg:bg-transparent rounded-t-[32px] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] p-6 pt-6 max-h-[85vh] overflow-y-auto transition-transform duration-300
+        ${isDrawerMinimized ? 'translate-y-[calc(100%-140px)]' : 'translate-y-0'}
+        lg:relative lg:shadow-none lg:rounded-none lg:p-0 lg:max-h-none lg:overflow-visible lg:translate-y-0 lg:flex-1 lg:flex lg:flex-col lg:items-center lg:justify-start
+      `}>
+        
+        {/* Invisible drag overlay for header */}
+        <div className="absolute top-0 left-0 right-0 h-28 lg:hidden cursor-pointer z-10" onClick={() => setIsDrawerMinimized(!isDrawerMinimized)}></div>
+
+        {/* Mobile Drag Indicator & Header */}
+        <div className="flex flex-col items-center justify-center mb-6 lg:hidden relative z-20 pointer-events-none">
+          <div className="w-12 h-1.5 bg-slate-200 rounded-full mb-3"></div>
+          <div className="flex items-center justify-between w-full px-1">
+            <div className="flex items-center gap-3">
+              <button onClick={() => navigate('/buyer')} className="p-1.5 bg-white shadow-sm border border-slate-200 rounded-full pointer-events-auto">
+                <ArrowLeft className="w-5 h-5 text-slate-600" />
+              </button>
+              <h1 className="text-xl font-bold text-slate-900">Track Order</h1>
+            </div>
+            <div className="text-xs font-mono text-slate-500 bg-white border border-slate-200 px-2 py-1 rounded-md">
+              ID: {errand.id.substring(0, 8)}...
+            </div>
+          </div>
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mt-4">
+            {isDrawerMinimized ? "Tap to expand details" : "Tap to view map"}
+          </p>
+        </div>
+
+        <div className="w-full lg:max-w-2xl lg:mx-auto relative z-30">
 
         {/* Status Progress Bar */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-6">
@@ -227,12 +324,12 @@ export default function BuyerTracking() {
                 <input 
                   type="text" 
                   readOnly 
-                  value={window.location.href}
+                  value={`${window.location.origin}/share/${errand.id}`}
                   className="flex-1 bg-[#F9F9F9] border border-[#EAEAEA] rounded-xl px-4 py-3 text-[#111111] text-sm outline-none"
                 />
                 <button 
                   onClick={() => {
-                    navigator.clipboard.writeText(window.location.href);
+                    navigator.clipboard.writeText(`${window.location.origin}/share/${errand.id}`);
                     setCopied(true);
                     setTimeout(() => setCopied(false), 2000);
                   }}
@@ -261,7 +358,7 @@ export default function BuyerTracking() {
             
             <ChatBox errandId={errand.id} viewerRole="buyer" />
 
-            <div className="flex gap-4 mt-6">
+            <div className="flex flex-col sm:flex-row gap-3 mt-6">
               <button
                 onClick={() => updateState('REJECTED_BY_BUYER')}
                 disabled={updating}
@@ -283,7 +380,7 @@ export default function BuyerTracking() {
         )}
 
         {errand.state === 'ARRIVED_AT_DROPOFF' && (
-          <div className="bg-white p-8 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-[#EAEAEA] mb-6 text-center">
+          <div ref={qrRef} className="bg-white p-8 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-[#EAEAEA] mb-6 text-center">
             <div className="w-16 h-16 bg-[#F7F4EC] rounded-2xl flex items-center justify-center mx-auto mb-4">
               <QrCode className="w-8 h-8 text-[#111111]" />
             </div>
@@ -305,8 +402,8 @@ export default function BuyerTracking() {
           </div>
         )}
 
-        {/* Live Map / GPS Mock */}
-        <div className="w-full h-80 rounded-2xl mb-6 overflow-hidden border border-slate-300 shadow-sm relative">
+        {/* Desktop Map (Hidden on mobile) */}
+        <div className="hidden lg:block w-full h-80 rounded-2xl mb-6 overflow-hidden border border-slate-300 shadow-sm relative">
           {isLoaded ? (
             <GoogleMap
               mapContainerStyle={{ width: '100%', height: '100%' }}
@@ -348,6 +445,7 @@ export default function BuyerTracking() {
           )}
         </div>
 
+        </div>
       </div>
     </div>
   );

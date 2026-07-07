@@ -3,6 +3,7 @@ import { errandModel, ErrandState, Errand } from '../models/errand.js';
 import { buyerModel } from '../models/buyerModel.js';
 import nombaService from '../services/nomba.service.js';
 import { emailService } from '../services/email.service.js';
+import { sendPushNotification } from '../services/notification.service.js';
 import { db } from '../config/firebase.js';
 import { PricingService, PricingSettings } from '../services/pricing.service.js';
 
@@ -182,6 +183,15 @@ export const nombaWebhook = async (req: Request, res: Response): Promise<any> =>
 
           await emailService.sendEscrowLockedMails(errandData);
 
+          // Notify the buyer via push notification that payment is confirmed
+          if (errandData.buyerId) {
+            await sendPushNotification(
+              errandData.buyerId,
+              'Payment Confirmed!',
+              `Your transfer for '${errandData.itemName}' was received and locked in escrow. Your runner is being dispatched.`
+            );
+          }
+
           await errandDoc.ref.update({
             state: 'ESCROW_LOCKED',
             escrowLockedNotified: true,
@@ -275,6 +285,23 @@ export const acceptErrand = async (req: Request, res: Response): Promise<any> =>
     // Trigger Email Notification
     await emailService.sendRunnerAcceptedMails(errand);
 
+    // Notify all riders belonging to this company via push notification
+    const ridersSnapshot = await db.collection('users')
+      .where('role', '==', 'rider')
+      .where('companyId', '==', runnerId)
+      .get();
+      
+    if (!ridersSnapshot.empty) {
+      const pushPromises = ridersSnapshot.docs.map(doc => 
+        sendPushNotification(
+          doc.id,
+          'New Errand Available!',
+          `Your company just accepted a delivery for '${errand.itemName}'. Open your feed to claim it.`
+        )
+      );
+      await Promise.all(pushPromises).catch(err => console.error('Failed to notify some riders', err));
+    }
+
     return res.status(200).json({
       message: 'Errand accepted successfully',
       state: 'ACCEPTED'
@@ -314,6 +341,13 @@ export const startErrand = async (req: Request, res: Response): Promise<any> => 
     const updatedErrand = await errandModel.getErrand(id);
     if (updatedErrand) {
       await emailService.sendRiderDispatchedMail(updatedErrand, plateNumber, imageUrl);
+      
+      // Notify rider via push
+      await sendPushNotification(
+        actualRiderId,
+        'New Errand Assigned',
+        `You have been assigned to pick up '${updatedErrand.itemName}'. Check your feed.`
+      );
     }
 
     return res.status(200).json({
@@ -350,6 +384,14 @@ export const updateErrandState = async (req: Request, res: Response): Promise<an
           escrowLockedNotified: true,
           escrowLockedAt: new Date().toISOString()
         });
+      }
+    } else if (state === 'PENDING_VERIFICATION') {
+      if (errand.buyerId) {
+        await sendPushNotification(
+          errand.buyerId,
+          'Rider Arrived!',
+          `Your rider has arrived at the drop-off location with '${errand.itemName}'. Please verify.`
+        );
       }
     } else if (state === 'DELIVERED') {
       console.log(`[Nomba] Releasing Escrow: Transferring funds to Seller (${errand.sellerId}) and Commission to Runner (${errand.runnerId}) for Errand ${id}`);

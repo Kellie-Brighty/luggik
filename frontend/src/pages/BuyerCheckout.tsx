@@ -1,8 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import { CheckCircle2, Check, AlertTriangle, Copy, CheckSquare, Loader2 } from "lucide-react";
 import { db } from "../firebase";
 import { doc, onSnapshot, getDoc } from "firebase/firestore";
+import { useJsApiLoader, GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api';
+import { luggikMapStyle } from "../utils/mapStyles";
+import { successSound } from "../utils/audio";
+
+const libraries: "places"[] = ["places"];
 
 export default function BuyerCheckout() {
   const navigate = useNavigate();
@@ -18,6 +23,15 @@ export default function BuyerCheckout() {
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [showMasterPinAlert, setShowMasterPinAlert] = useState(!!masterPin);
+
+  const [isDrawerMinimized, setIsDrawerMinimized] = useState(false);
+  const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
+
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "",
+    libraries,
+  });
 
   useEffect(() => {
     if (!id) return;
@@ -44,6 +58,36 @@ export default function BuyerCheckout() {
     });
     return () => unsub();
   }, [id]);
+
+  useEffect(() => {
+    if (isLoaded && _liveErrand?.pickupLocation && _liveErrand?.dropoffLocation) {
+      const pickupCoords = { lat: _liveErrand.pickupLocation.latitude, lng: _liveErrand.pickupLocation.longitude };
+      const dropoffCoords = { lat: _liveErrand.dropoffLocation.latitude, lng: _liveErrand.dropoffLocation.longitude };
+      
+      const directionsService = new window.google.maps.DirectionsService();
+      directionsService.route(
+        {
+          origin: pickupCoords,
+          destination: dropoffCoords,
+          travelMode: window.google.maps.TravelMode.DRIVING,
+        },
+        (result, status) => {
+          if (status === window.google.maps.DirectionsStatus.OK && result) {
+            setDirections(result);
+          }
+        }
+      );
+    }
+  }, [isLoaded, _liveErrand]);
+
+  const prevStateRef = useRef<string | undefined>(undefined);
+  
+  useEffect(() => {
+    if (_liveErrand?.state === 'ESCROW_LOCKED' && prevStateRef.current !== 'ESCROW_LOCKED') {
+      successSound.play();
+    }
+    prevStateRef.current = _liveErrand?.state;
+  }, [_liveErrand?.state]);
 
   const platformFee = 50;
   const total = _liveErrand ? (Number(_liveErrand.priceAmount) + Number(_liveErrand.deliveryFee) + platformFee) : 0;
@@ -88,9 +132,37 @@ export default function BuyerCheckout() {
     );
   }
 
+  const pickupCoords = _liveErrand?.pickupLocation ? { lat: _liveErrand.pickupLocation.latitude, lng: _liveErrand.pickupLocation.longitude } : null;
+  const dropoffCoords = _liveErrand?.dropoffLocation ? { lat: _liveErrand.dropoffLocation.latitude, lng: _liveErrand.dropoffLocation.longitude } : null;
+
   return (
-    <div className="min-h-screen bg-luggik-bg font-sans p-6 flex flex-col">
-      <div className="pt-6 px-6 flex justify-center w-full mb-8">
+    <div className="min-h-screen bg-luggik-bg font-sans p-0 lg:p-6 flex flex-col relative overflow-hidden lg:overflow-visible">
+      
+      {/* MOBILE FULL-SCREEN MAP */}
+      <div 
+        className="fixed inset-0 z-0 lg:hidden"
+        onClick={() => setIsDrawerMinimized(true)}
+        onTouchStart={() => setIsDrawerMinimized(true)}
+      >
+         {isLoaded ? (
+            <GoogleMap
+              mapContainerStyle={{ width: '100%', height: '100%' }}
+              center={pickupCoords || dropoffCoords || { lat: 6.5244, lng: 3.3792 }}
+              zoom={12}
+              options={{ disableDefaultUI: true, styles: luggikMapStyle, gestureHandling: 'greedy' }}
+            >
+              {directions && <DirectionsRenderer directions={directions} options={{ suppressMarkers: false, polylineOptions: { strokeColor: '#FFCC00', strokeWeight: 5 } }} />}
+              {!directions && pickupCoords && <Marker position={pickupCoords} label="P" />}
+              {!directions && dropoffCoords && <Marker position={dropoffCoords} label="D" />}
+            </GoogleMap>
+         ) : (
+           <div className="w-full h-full bg-[#EAEAEA] flex items-center justify-center">
+             <Loader2 className="w-6 h-6 animate-spin text-[#A8A398]" />
+           </div>
+         )}
+      </div>
+
+      <div className="pt-6 px-6 flex justify-center w-full mb-8 relative z-10 hidden lg:flex">
         <nav className="flex items-center justify-between px-8 py-3 bg-transparent border border-[#EAEAEA] rounded-full w-full max-w-[1200px]">
           <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
             <div className="w-[24px] h-[24px] bg-[#2A2925] rounded-[4px] flex items-center justify-center border border-[#3E3C36]">
@@ -101,8 +173,26 @@ export default function BuyerCheckout() {
         </nav>
       </div>
       
-      <div className="flex-1 flex items-center justify-center">
-        <div className="bg-transparent border border-[#EAEAEA] p-6 md:p-10 rounded-[24px] text-center max-w-lg w-full mx-auto">
+      {/* DRAWER CONTAINER */}
+      <div className={`
+        fixed bottom-0 left-0 right-0 z-40 bg-white rounded-t-[32px] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] p-6 pt-6 max-h-[85vh] overflow-y-auto transition-transform duration-300
+        ${isDrawerMinimized ? 'translate-y-[calc(100%-120px)]' : 'translate-y-0'}
+        lg:relative lg:bg-transparent lg:shadow-none lg:rounded-[24px] lg:p-0 lg:max-h-none lg:overflow-visible lg:translate-y-0 lg:flex-1 lg:flex lg:items-center lg:justify-center lg:flex-col
+      `}>
+        
+        {/* Invisible drag overlay for header */}
+        <div className="absolute top-0 left-0 right-0 h-24 lg:hidden cursor-pointer z-10" onClick={() => setIsDrawerMinimized(!isDrawerMinimized)}></div>
+
+        {/* Mobile Drag Indicator */}
+        <div className="flex flex-col items-center justify-center mb-6 lg:hidden relative z-20 pointer-events-none">
+          <div className="w-12 h-1.5 bg-[#EAEAEA] rounded-full mb-2"></div>
+          <p className="text-[11px] font-semibold text-[#A8A398] uppercase tracking-wider">
+            {isDrawerMinimized ? "Tap to expand details" : "Tap to view map"}
+          </p>
+        </div>
+
+        <div className="w-full lg:max-w-lg lg:mx-auto">
+          <div className="lg:bg-transparent lg:border lg:border-[#EAEAEA] lg:p-10 lg:rounded-[24px] text-center w-full">
           <div className="w-16 h-16 bg-[#F7F4EC] rounded-full flex items-center justify-center mx-auto mb-6 border border-[#DDDDD8]">
             <CheckCircle2 className="w-8 h-8 text-[#0B0F0E]" />
           </div>
@@ -195,7 +285,7 @@ export default function BuyerCheckout() {
         </div>
 
         {(trackingPin || _liveErrand?.trackingPin) && _liveErrand.state !== 'PENDING_ESCROW' && (
-          <div className="bg-white rounded-3xl p-8 border border-[#EAEAEA] shadow-[0_2px_20px_rgba(0,0,0,0.03)] w-full max-w-md mx-auto text-left mt-6">
+          <div className="bg-white rounded-3xl p-8 border border-[#EAEAEA] shadow-[0_2px_20px_rgba(0,0,0,0.03)] w-full lg:max-w-md lg:mx-auto text-left mt-6 relative z-30">
             <h3 className="text-xl font-bold text-[#111111] mb-2">Share with Vendor</h3>
             <p className="text-[#6E6B5E] text-sm mb-6">Send this secure link and PIN to the vendor so they can verify the escrow and track the rider.</p>
             
@@ -231,6 +321,7 @@ export default function BuyerCheckout() {
             </div>
           </div>
         )}
+      </div>
       {/* Cancel Modal */}
       {showCancelModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">

@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import crypto from 'crypto';
 import { db } from '../config/firebase.js'; // Assuming firebase admin db is exported from here
 import { emailService } from '../services/email.service.js';
+import { sendPushNotification } from '../services/notification.service.js';
 
 
 const router = express.Router();
@@ -79,6 +80,17 @@ router.post('/nomba', express.json(), async (req: Request, res: Response): Promi
 
           await emailService.sendEscrowLockedMails(errandData);
 
+          // Notify the buyer via push notification that payment is confirmed
+          if (errandData.buyerId) {
+            await sendPushNotification(
+              errandData.buyerId,
+              'Payment Confirmed!',
+              `Your transfer for '${errandData.itemName}' was received and locked in escrow. Your runner is being dispatched.`
+            );
+          }
+
+          // TODO: Notify all logistics companies that a new errand is available
+
           await errandDoc.ref.update({
             state: 'ESCROW_LOCKED',
             escrowLockedNotified: true,
@@ -118,13 +130,12 @@ router.post('/dojah', express.json(), async (req: Request, res: Response): Promi
       const uid = metadata?.uid;
       if (uid) {
         // Find the user's profile and update kycStatus
-        const usersRef = db.collection('users');
-        const snapshot = await usersRef.where('uid', '==', uid).get();
+        const userRef = db.collection('users').doc(uid);
+        const doc = await userRef.get();
         
-        if (!snapshot.empty) {
-          const docId = snapshot.docs[0].id;
-          const userData = snapshot.docs[0].data();
-          await usersRef.doc(docId).update({
+        if (doc.exists) {
+          const userData = doc.data() as any;
+          await userRef.update({
             kycStatus: 'approved',
             kycVerifiedAt: new Date().toISOString(),
             dojahWebhookPayload: payload // Store full payload including address for errand assignment
@@ -140,6 +151,21 @@ router.post('/dojah', express.json(), async (req: Request, res: Response): Promi
           }
         } else {
           console.warn(`Dojah webhook matched no user for uid ${uid}`);
+        }
+      }
+    } else {
+      // Handle failed verification
+      const uid = metadata?.uid;
+      if (uid) {
+        const userRef = db.collection('users').doc(uid);
+        const doc = await userRef.get();
+        if (doc.exists) {
+          await userRef.update({
+            kycStatus: 'rejected',
+            kycError: payload.error || "Verification failed by Dojah.",
+            kycVerifiedAt: new Date().toISOString()
+          });
+          console.log(`Dojah KYC rejected for user ${uid}`);
         }
       }
     }

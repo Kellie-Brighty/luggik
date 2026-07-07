@@ -12,3 +12,12 @@
   --color-luggik-yellow: #FFCC00;
   --color-luggik-gray: #4D4D4D;
 }
+
+@keyframes scan {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(280px);
+  }
+}

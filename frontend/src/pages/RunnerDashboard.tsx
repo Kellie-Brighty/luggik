@@ -1,12 +1,13 @@
-import { Settings, LogOut, PackageSearch, Users, Loader2, AlertCircle, Image as UserPlus, Lock, CheckCircle2, Car, Clock, MapPin, ArrowRight, Check } from "lucide-react";
+import { Settings, LogOut, PackageSearch, Users, Loader2, AlertCircle, Image as UserPlus, Lock, CheckCircle2, Clock, MapPin, ArrowRight, Check } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { formatRelativeTime } from "../utils/timeUtils";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { signOut } from "firebase/auth";
 import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import PricingSettings from '../components/PricingSettings';
+import { notificationSound } from "../utils/audio";
 
 interface Errand {
   id: string;
@@ -30,6 +31,8 @@ export default function RunnerDashboard() {
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'errands' | 'fleet' | 'settings' | 'history'>('errands');
   const [companyErrands, setCompanyErrands] = useState<Errand[]>([]);
+  const [historyPage, setHistoryPage] = useState(1);
+  const itemsPerPage = 5;
   
   const totalRevenue = companyErrands
     .filter(e => e.state === 'DELIVERED')
@@ -66,6 +69,7 @@ export default function RunnerDashboard() {
     setModalState({ show: true, type, title, message });
   };
 
+  const prevErrandsLengthRef = useRef(0);
   const navigate = useNavigate();
   const { user, kycStatus, role, companyName } = useAuth();
 
@@ -101,6 +105,13 @@ export default function RunnerDashboard() {
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const errandsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Errand[];
+      
+      // Play sound if new errands were added
+      if (errandsData.length > prevErrandsLengthRef.current && prevErrandsLengthRef.current !== 0) {
+        notificationSound.play();
+      }
+      prevErrandsLengthRef.current = errandsData.length;
+
       setErrands(errandsData);
       setLoading(false);
       setError(null);
@@ -284,7 +295,7 @@ export default function RunnerDashboard() {
     <div className="min-h-screen bg-[#F7F4EC] font-[Inter,sans-serif]">
       
       {/* Top Header */}
-      <header className="flex items-center justify-between px-8 py-4 bg-[#F7F4EC] border-b border-[#EAEAEA]">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between px-6 sm:px-8 py-4 sm:py-6 bg-[#F7F4EC] border-b border-[#EAEAEA] gap-4">
         <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
           <div className="w-[24px] h-[24px] bg-[#2A2925] rounded-[4px] flex items-center justify-center border border-[#3E3C36] shadow-sm">
             <Check className="w-3.5 h-3.5 text-[#FFCC00]" strokeWidth={3} />
@@ -292,8 +303,8 @@ export default function RunnerDashboard() {
           <span className="text-[18px] font-bold tracking-tight text-[#15140F] font-['Space_Grotesk',sans-serif]">Luggik</span>
         </Link>
         
-        <div className="flex items-center gap-4">
-          <div className="bg-[#15140F] rounded-full pl-1.5 pr-5 py-1.5 flex items-center gap-3 border border-[#3E3C36]">
+        <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
+          <div className="bg-[#15140F] rounded-full pl-1.5 pr-5 py-1.5 flex items-center gap-3 border border-[#3E3C36] flex-1 sm:flex-none">
             <div className="w-7 h-7 bg-[#FFCC00] rounded-full flex items-center justify-center">
               <span className="font-bold text-[#15140F] text-sm">₦</span>
             </div>
@@ -305,16 +316,16 @@ export default function RunnerDashboard() {
           
           <button 
             onClick={handleLogout} 
-            className="flex items-center gap-2 px-4 py-2 bg-transparent border border-[#EAEAEA] rounded-full hover:bg-[rgba(11,15,14,0.03)] transition-colors text-sm font-medium text-[#6E6B5E]"
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-transparent border border-[#EAEAEA] rounded-full hover:bg-[rgba(11,15,14,0.03)] transition-colors text-sm font-medium text-[#6E6B5E]"
           >
             <LogOut className="w-4 h-4" />
-            Log out
+            <span className="hidden sm:inline">Log out</span>
           </button>
         </div>
       </header>
 
       {/* Stats Bar */}
-      <div className="w-full bg-[#15140F] py-3 px-8 flex justify-center items-center gap-12 border-b border-[#3E3C36]">
+      <div className="w-full bg-[#15140F] py-3 px-4 sm:px-8 flex flex-wrap justify-center items-center gap-4 sm:gap-12 border-b border-[#3E3C36]">
         <div className="flex items-center gap-2">
           <div className="w-1 h-1 bg-[#A8A398] rounded-full"></div>
           <span className="text-[10px] font-mono text-[#A8A398] uppercase tracking-wider">HELD</span>
@@ -333,8 +344,8 @@ export default function RunnerDashboard() {
       </div>
 
       {/* Tabs */}
-      <div className="w-full bg-[#F7F4EC] border-b border-[#EAEAEA] px-8 flex justify-center">
-        <div className="flex items-center gap-10">
+      <div className="w-full bg-[#F7F4EC] border-b border-[#EAEAEA] px-4 sm:px-8 overflow-x-auto no-scrollbar">
+        <div className="flex items-center md:justify-center gap-6 sm:gap-10 min-w-max w-full">
           <button 
             onClick={() => setActiveTab('errands')}
             className={`flex items-center gap-2 py-4 text-[13.5px] font-semibold transition-all border-b-[2.5px] ${activeTab === 'errands' ? 'text-[#15140F] border-[#15140F]' : 'text-[#A8A398] border-transparent hover:text-[#6E6B5E]'}`}
@@ -366,7 +377,7 @@ export default function RunnerDashboard() {
         </div>
       </div>
 
-      <div className="max-w-[1000px] mx-auto p-8">
+      <div className="max-w-[1000px] mx-auto p-4 sm:p-8">
 
         {/* Tab Content */}
         {activeTab === 'errands' ? (
@@ -414,7 +425,7 @@ export default function RunnerDashboard() {
                     <span>{errand.pickupLocation?.address.split(',')[0]}, Lagos <ArrowRight className="w-3 h-3 inline mx-1 text-[#A8A398]" /> {errand.dropoffLocation?.address.split(',')[0]}, Lagos</span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <div className="bg-[rgba(255,204,0,0.15)] text-[#E5A800] text-[11px] font-semibold px-2.5 py-1 rounded-full flex items-center gap-1.5 border border-[rgba(255,204,0,0.3)]">
                       <Lock className="w-3 h-3" />
                       Escrow funded
@@ -508,7 +519,7 @@ export default function RunnerDashboard() {
 
                 <div className="pt-2">
                   <label className="block text-[12px] font-semibold text-[#15140F] mb-3">Rider photo <span className="text-[#A8A398] font-normal">(optional)</span></label>
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-4">
                     <div className="relative">
                       <input 
                         type="file" 
@@ -556,7 +567,7 @@ export default function RunnerDashboard() {
                 ) : (
                   <div className="space-y-4">
                     {riders.map((r, i) => (
-                      <div key={i} className="flex items-center justify-between group">
+                      <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 group p-4 sm:p-0 border sm:border-0 border-[#EAEAEA] rounded-[16px] sm:rounded-none">
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 bg-[#F7F4EC] border border-[#EAEAEA] rounded-full overflow-hidden flex items-center justify-center shrink-0">
                             {r.imageUrl ? (
@@ -573,25 +584,27 @@ export default function RunnerDashboard() {
                           </div>
                         </div>
                         
-                        <div className="flex items-center gap-6">
+                        <div className="flex flex-wrap items-center justify-between sm:justify-end gap-4 w-full sm:w-auto mt-2 sm:mt-0 pt-3 sm:pt-0 border-t sm:border-0 border-[#EAEAEA]">
                           <span className="text-[11px] font-medium text-[#A8A398]">Added {new Date(r.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                           
-                          <button 
-                            onClick={() => {
-                              setEditingRider(r);
-                              setEditRiderName(r.name || "");
-                              setEditRiderPassword("");
-                              setEditRiderPlateNumber(r.plateNumber || "");
-                              setEditRiderImageUrl(r.imageUrl || "");
-                            }}
-                            className="text-[#15140F] text-[13px] font-bold hover:underline transition-all"
-                          >
-                            Edit
-                          </button>
-                          
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 bg-[#4ADE80] rounded-full shadow-[0_0_8px_rgba(74,222,128,0.5)]"></div>
-                            <span className="text-[10px] font-bold text-[#4ADE80] tracking-wider">ACTIVE</span>
+                          <div className="flex items-center gap-4">
+                            <button 
+                              onClick={() => {
+                                setEditingRider(r);
+                                setEditRiderName(r.name || "");
+                                setEditRiderPassword("");
+                                setEditRiderPlateNumber(r.plateNumber || "");
+                                setEditRiderImageUrl(r.imageUrl || "");
+                              }}
+                              className="text-[#15140F] text-[13px] font-bold hover:underline transition-all"
+                            >
+                              Edit
+                            </button>
+                            
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-1.5 h-1.5 bg-[#4ADE80] rounded-full shadow-[0_0_8px_rgba(74,222,128,0.5)]"></div>
+                              <span className="text-[10px] font-bold text-[#4ADE80] tracking-wider">ACTIVE</span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -602,98 +615,108 @@ export default function RunnerDashboard() {
             </div>
           </div>
         ) : activeTab === 'history' ? (
-          <div className="space-y-8">
-            <div>
-              <h2 className="text-xl font-black text-slate-900 mb-4 tracking-tight flex items-center gap-2"><Clock className="w-5 h-5 text-nomba-yellow"/> Active Errands</h2>
-              {companyErrands.filter(e => !['DELIVERED', 'CANCELLED', 'REJECTED_BY_BUYER', 'DISPUTED'].includes(e.state)).length === 0 ? (
-                <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center">
-                  <p className="text-slate-500 font-medium">No active errands. Accept some from the Available Errands tab!</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {companyErrands.filter(e => !['DELIVERED', 'CANCELLED', 'REJECTED_BY_BUYER', 'DISPUTED'].includes(e.state)).map(errand => (
-                    <div key={errand.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-start justify-between gap-4 transition-all hover:shadow-md hover:border-nomba-yellow">
-                      <div>
-                        <h3 className="font-bold text-lg text-slate-900">{errand.itemName}</h3>
-                        <p className="text-sm text-slate-500 mb-2 font-medium flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-slate-300"></span> {errand.pickupLocation.address} <br/>
-                          <span className="w-2 h-2 rounded-full bg-nomba-yellow"></span> {errand.dropoffLocation.address}
-                        </p>
-                        <div className="text-xs font-bold text-nomba-yellow bg-nomba-dark px-3 py-1.5 rounded-lg inline-block uppercase tracking-wider mb-4">
-                          {errand.state.replace(/_/g, ' ')}
-                        </div>
-                        
-                        {/* Rider Info */}
-                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 mt-2">
-                          {errand.actualRiderImageUrl ? (
-                            <img src={errand.actualRiderImageUrl} alt={errand.actualRiderName} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center border-2 border-white shadow-sm">
-                              <Car className="w-5 h-5 text-slate-400" />
-                            </div>
-                          )}
-                          <div>
-                            <p className="text-sm font-bold text-slate-900 leading-tight">{errand.actualRiderName || 'Awaiting Rider'}</p>
-                            {errand.actualRiderPlateNumber ? (
-                              <p className="text-xs text-slate-500 font-medium">{errand.actualRiderPlateNumber}</p>
-                            ) : (
-                              <p className="text-xs text-slate-400 font-medium italic">Pending dispatch...</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right bg-slate-50 p-3 rounded-xl border border-slate-100 min-w-[120px]">
-                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Delivery Fee</p>
-                        <p className="text-2xl font-black text-slate-900">₦{errand.deliveryFee?.toLocaleString()}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
+              <h2 className="text-[20px] font-bold text-[#15140F]">My errands</h2>
+              <div className="bg-[#EAEAEA] border border-[#DDDDD8] rounded-full px-2.5 py-0.5 text-[12px] font-semibold text-[#6E6B5E]">
+                {companyErrands.length}
+              </div>
             </div>
-            
-            <div>
-              <h2 className="text-xl font-black text-slate-900 mb-4 tracking-tight flex items-center gap-2"><CheckCircle2 className="w-5 h-5 text-green-500"/> History (Completed)</h2>
-              {companyErrands.filter(e => ['DELIVERED', 'CANCELLED', 'REJECTED_BY_BUYER', 'DISPUTED'].includes(e.state)).length === 0 ? (
-                <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center">
-                  <p className="text-slate-500 font-medium">No completed errands yet.</p>
+
+            {companyErrands.length === 0 ? (
+              <div className="bg-transparent rounded-[24px] p-12 text-center border border-[#EAEAEA] shadow-sm">
+                <Clock className="w-12 h-12 text-[#A8A398] mx-auto mb-4" />
+                <h3 className="text-lg font-bold text-[#15140F] mb-2">No Errands Yet</h3>
+                <p className="text-[#6E6B5E]">Your completed and active errands will appear here.</p>
+              </div>
+            ) : (
+              <div className="bg-transparent border border-[#EAEAEA] rounded-[16px] overflow-hidden">
+                {/* Header Row */}
+                <div className="hidden md:grid grid-cols-[1fr_2fr_3fr_1.5fr_1fr] px-6 py-4 border-b border-[#EAEAEA] text-[10px] font-bold text-[#A8A398] uppercase tracking-wider">
+                  <div>ID</div>
+                  <div>ITEM</div>
+                  <div>ROUTE</div>
+                  <div>STATUS</div>
+                  <div className="text-right">AMOUNT</div>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {companyErrands.filter(e => ['DELIVERED', 'CANCELLED', 'REJECTED_BY_BUYER', 'DISPUTED'].includes(e.state)).map(errand => (
-                    <div key={errand.id} className="bg-slate-50 p-6 rounded-2xl border border-slate-200 flex flex-col md:flex-row items-start justify-between gap-4 opacity-80 hover:opacity-100 transition-opacity">
-                      <div>
-                        <h3 className="font-bold text-lg text-slate-700 line-through decoration-slate-300">{errand.itemName}</h3>
-                        <p className="text-sm text-slate-500 mb-2 font-medium flex items-center gap-2">
-                          {errand.pickupLocation.address} → {errand.dropoffLocation.address}
-                        </p>
-                        <div className={`text-xs font-bold px-3 py-1.5 rounded-lg inline-block uppercase tracking-wider mb-4 ${errand.state === 'DELIVERED' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                          {errand.state.replace(/_/g, ' ')}
+                
+                {/* Rows */}
+                <div className="flex flex-col">
+                  {companyErrands
+                    .slice((historyPage - 1) * itemsPerPage, historyPage * itemsPerPage)
+                    .map(errand => {
+                    const statusConfig = {
+                      'DELIVERED': { text: 'COMPLETE', color: 'bg-[#4ADE80]', textColor: 'text-[#4ADE80]' },
+                      'CANCELLED': { text: 'CANCELLED', color: 'bg-red-500', textColor: 'text-red-500' },
+                      'REJECTED_BY_BUYER': { text: 'REJECTED', color: 'bg-red-500', textColor: 'text-red-500' },
+                    }[errand.state] || { text: 'IN TRANSIT', color: 'bg-[#FFCC00]', textColor: 'text-[#E5A800]' };
+
+                    return (
+                      <div key={errand.id} className="grid grid-cols-1 md:grid-cols-[1fr_2fr_3fr_1.5fr_1fr] items-start md:items-center p-6 border-b border-[#EAEAEA] last:border-b-0 gap-4 md:gap-4 hover:bg-[rgba(11,15,14,0.02)] transition-colors">
+                        <div className="flex flex-col md:block">
+                           <div className="text-[10px] font-bold text-[#A8A398] uppercase tracking-wider mb-1 md:hidden">ID</div>
+                           <div className="text-[13px] text-[#A8A398] font-mono">ESC-{errand.id.substring(0, 5).toUpperCase()}</div>
                         </div>
 
-                        {/* Rider Info */}
-                        {errand.actualRiderName && (
-                          <div className="flex items-center gap-2 mt-2">
-                            {errand.actualRiderImageUrl ? (
-                              <img src={errand.actualRiderImageUrl} alt={errand.actualRiderName} className="w-6 h-6 rounded-full object-cover grayscale" />
-                            ) : (
-                              <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center">
-                                <Car className="w-3 h-3 text-slate-400" />
-                              </div>
-                            )}
-                            <p className="text-xs font-semibold text-slate-500">{errand.actualRiderName}</p>
+                        <div className="flex flex-col md:block">
+                          <div className="text-[10px] font-bold text-[#A8A398] uppercase tracking-wider mb-1 md:hidden">ITEM</div>
+                          <div className="text-[14px] font-bold text-[#15140F]">{errand.itemName}</div>
+                        </div>
+
+                        <div className="flex flex-col md:block pr-4">
+                          <div className="text-[10px] font-bold text-[#A8A398] uppercase tracking-wider mb-1 md:hidden">ROUTE</div>
+                          <div className="text-[13px] text-[#6E6B5E] grid grid-cols-[1fr_auto_1fr] items-center gap-2 md:gap-3 w-full">
+                            <span className="break-words leading-tight text-left">{errand.pickupLocation?.address?.split(',')[0]}</span>
+                            <div className="flex justify-center">
+                              <ArrowRight className="w-3.5 h-3.5 text-[#A8A398] shrink-0" />
+                            </div>
+                            <span className="break-words leading-tight text-left">{errand.dropoffLocation?.address?.split(',')[0]}</span>
                           </div>
-                        )}
+                        </div>
+
+                        <div className="flex flex-col md:block">
+                          <div className="text-[10px] font-bold text-[#A8A398] uppercase tracking-wider mb-1 md:hidden">STATUS</div>
+                          <div className={`flex items-center gap-2 text-[11px] font-bold tracking-wider ${statusConfig.textColor}`}>
+                            <div className={`w-1.5 h-1.5 rounded-full ${statusConfig.color}`}></div>
+                            {statusConfig.text}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col md:block md:text-right">
+                          <div className="text-[10px] font-bold text-[#A8A398] uppercase tracking-wider mb-1 md:hidden">AMOUNT</div>
+                          <div className="text-[14px] font-bold text-[#15140F]">
+                            ₦{errand.deliveryFee?.toLocaleString() || "0"}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Earned</p>
-                        <p className="text-xl font-black text-slate-700">₦{errand.deliveryFee?.toLocaleString()}</p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+            
+            {/* Pagination Controls */}
+            {companyErrands.length > itemsPerPage && (
+              <div className="flex justify-center items-center gap-4 mt-6">
+                <button
+                  onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                  disabled={historyPage === 1}
+                  className="px-4 py-2 bg-white border border-[#EAEAEA] rounded-xl text-sm font-semibold text-[#15140F] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors"
+                >
+                  Previous
+                </button>
+                <span className="text-sm font-semibold text-[#6E6B5E]">
+                  Page {historyPage} of {Math.ceil(companyErrands.length / itemsPerPage)}
+                </span>
+                <button
+                  onClick={() => setHistoryPage(p => Math.min(Math.ceil(companyErrands.length / itemsPerPage), p + 1))}
+                  disabled={historyPage === Math.ceil(companyErrands.length / itemsPerPage)}
+                  className="px-4 py-2 bg-white border border-[#EAEAEA] rounded-xl text-sm font-semibold text-[#15140F] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         ) : activeTab === 'settings' ? (
           <PricingSettings />

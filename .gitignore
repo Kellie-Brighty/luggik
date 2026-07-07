@@ -17,3 +17,11 @@ service-account.json
 # Deploy and AI Memory
 deploy/
 .ai_memory*
+
+# Hackathon Exclusions (Hidden from judges)
+presentation/
+dist/
+*.py
+*.mjs
+test_*.ts
+AI-directive.md

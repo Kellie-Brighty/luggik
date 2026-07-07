@@ -1,26 +1,30 @@
-import { ArrowLeft, Loader2, PhoneCall, CheckCircle2, AlertCircle, ArrowRight, Store, User, MapPin, ScanLine } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
+import { useAuth } from "../contexts/AuthContext";
+import { notificationSound } from "../utils/audio";
 import ChatBox from "../components/ChatBox";
 import { useJsApiLoader, GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api';
-import { luggikMapStyle } from "../utils/mapStyles";
+import { Check, CheckCircle2, MapPin, ScanLine, ArrowLeft, Loader2, ArrowRight, Store, User, PhoneCall, AlertCircle } from "lucide-react";
 import { Scanner } from '@yudiel/react-qr-scanner';
+import { luggikMapStyle } from "../utils/mapStyles";
 
 const libraries: "places"[] = ["places"];
 
 interface Errand {
   id: string;
   itemName: string;
+  pickupLocation: { latitude: number; longitude: number; address: string };
+  dropoffLocation: { latitude: number; longitude: number; address: string };
   state: string;
-  pickupLocation: { address: string, latitude: number, longitude: number };
-  dropoffLocation: { address: string, latitude: number, longitude: number };
-  sellerPhone: string;
-  buyerPhone: string;
+  deliveryFee: number;
+  sellerPhone?: string;
+  buyerPhone?: string;
 }
 
 export default function RunnerTracking() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { role } = useAuth();
   const [errand, setErrand] = useState<Errand | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -28,6 +32,7 @@ export default function RunnerTracking() {
   const [currentPosition, setCurrentPosition] = useState<{lat: number, lng: number} | null>(null);
   const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
   const watchIdRef = useRef<number | null>(null);
+  const prevStateRef = useRef<string | undefined>(undefined);
   
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
@@ -55,6 +60,18 @@ export default function RunnerTracking() {
       );
     }
   }, [errand?.pickupLocation?.latitude, errand?.dropoffLocation?.latitude, isLoaded]);
+
+  useEffect(() => {
+    if (prevStateRef.current && prevStateRef.current !== errand?.state && role === 'buyer') {
+      if (errand?.state === 'ACCEPTED' || 
+          errand?.state === 'IN_PROGRESS' || 
+          errand?.state === 'PENDING_VERIFICATION' ||
+          errand?.state === 'ARRIVED_AT_DROPOFF') {
+        notificationSound.play();
+      }
+    }
+    prevStateRef.current = errand?.state;
+  }, [errand?.state, role]);
 
   useEffect(() => {
     fetchErrand();
@@ -208,7 +225,9 @@ export default function RunnerTracking() {
 
       <div className="max-w-3xl mx-auto w-full px-6 py-8">
         
-        {/* Map */}
+        {errand.state !== 'DELIVERED' ? (
+          <>
+            {/* Map */}
         <div className="w-full h-[280px] rounded-[16px] overflow-hidden mb-8 border border-[#EAEAEA] shadow-sm relative">
           {isLoaded ? (
             <GoogleMap
@@ -433,6 +452,31 @@ export default function RunnerTracking() {
             </button>
           ) : null}
         </div>
+        </>
+      ) : (
+        <div className="flex flex-col items-center justify-center pt-8 pb-12 animate-in fade-in zoom-in duration-500">
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6 border-4 border-green-50 shadow-sm">
+            <Check className="w-10 h-10 text-green-600" strokeWidth={3} />
+          </div>
+          <h2 className="text-[28px] font-bold text-[#15140F] mb-3 text-center">Delivery confirmed</h2>
+          <p className="text-[#6E6B5E] text-center max-w-[320px] mb-8 text-[15px] leading-relaxed">
+            The buyer has been notified and escrow has been released. Your earnings are on the way.
+          </p>
+          
+          <div className="bg-[#15140F] rounded-2xl w-full max-w-sm p-6 mb-8 text-center shadow-xl">
+            <p className="text-[11px] font-bold text-[#A8A398] uppercase tracking-wider mb-2">Delivery Fee Paid Out</p>
+            <p className="text-[32px] font-bold text-[#FFCC00] mb-3">₦{errand.deliveryFee?.toLocaleString() || "2,400"}</p>
+            <p className="text-[12px] text-[#A8A398] font-medium">Funds released from escrow · Just now</p>
+          </div>
+          
+          <button 
+            onClick={() => navigate('/runner')}
+            className="w-full max-w-sm py-4 rounded-full font-bold text-[16px] transition-colors bg-[#FFCC00] hover:bg-[#F2C200] text-[#15140F] shadow-[0_4px_14px_rgba(255,204,0,0.3)]"
+          >
+            Back to rider feed
+          </button>
+        </div>
+      )}
       </div>
 
       {/* QR Scanner Modal */}
@@ -458,9 +502,26 @@ export default function RunnerTracking() {
                   setTimeout(() => setScanError(null), 3000);
                 }
               }}
-              components={{ finder: true, audio: false } as any}
+              components={{ finder: false, audio: false } as any}
               styles={{ container: { width: '100%', height: '100%' } }}
             />
+
+            {/* Custom Luggik Yellow Finder Overlay */}
+            <div className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center">
+              {/* Dimmed background around the scanner box */}
+              <div className="absolute inset-0 shadow-[0_0_0_4000px_rgba(0,0,0,0.6)]" style={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 0, 50% 50%, 50% 50%, 50% 50%, 50% 50%)' /* fallback */ }} />
+              
+              <div className="w-[280px] h-[280px] relative z-20 shadow-[0_0_0_4000px_rgba(0,0,0,0.6)] rounded-3xl overflow-hidden flex items-center justify-center">
+                 {/* Scanner box corners */}
+                 <div className="absolute top-0 left-0 w-16 h-16 border-t-[6px] border-l-[6px] border-[#FFCC00] rounded-tl-3xl z-30" />
+                 <div className="absolute top-0 right-0 w-16 h-16 border-t-[6px] border-r-[6px] border-[#FFCC00] rounded-tr-3xl z-30" />
+                 <div className="absolute bottom-0 left-0 w-16 h-16 border-b-[6px] border-l-[6px] border-[#FFCC00] rounded-bl-3xl z-30" />
+                 <div className="absolute bottom-0 right-0 w-16 h-16 border-b-[6px] border-r-[6px] border-[#FFCC00] rounded-br-3xl z-30" />
+                 
+                 {/* Scanning line animation */}
+                 <div className="w-full h-1 bg-[#FFCC00] shadow-[0_0_10px_2px_rgba(255,204,0,0.5)] animate-[scan_2s_ease-in-out_infinite] z-30 absolute top-0" />
+              </div>
+            </div>
             
             {scanError && (
               <div className="absolute bottom-10 left-4 right-4 bg-red-500 text-white p-4 rounded-xl text-center font-bold shadow-lg animate-in fade-in slide-in-from-bottom-4">

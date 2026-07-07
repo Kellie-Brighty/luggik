@@ -8,6 +8,7 @@ import buyerRoutes from './src/routes/buyer.routes.js';
 import fleetRoutes from './src/routes/fleet.routes.js';
 import uploadRoutes from './src/routes/upload.routes.js';
 import bankRoutes from './src/routes/bank.routes.js';
+import userRoutes from './src/routes/user.routes.js';
 
 const app = express();
 const port = process.env.PORT || 3008;
@@ -22,6 +23,7 @@ app.use('/api/kyc', kycRoutes);
 app.use('/api/fleet', fleetRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/banks', bankRoutes);
+app.use('/api/users', userRoutes);
 
 app.get('/', (req: Request, res: Response) => {
   res.send('Luggik API is running');

@@ -17,6 +17,24 @@ const defaultCenter = {
   lng: 3.3792
 };
 
+const mapStyles = [
+  { elementType: "geometry", stylers: [{ color: "#E9E2CF" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#E9E2CF" }, { weight: 2 }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#5C4A3D" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#3B2E24" }] },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#5C4A3D" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#D0D1AB" }] },
+  { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#5C4A3D" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#FFFFFF" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#E9E2CF" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#786554" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#F4ECDD" }] },
+  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#E9E2CF" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#C6CACC" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#7A8389" }] },
+  { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#DCD4C0" }] }
+];
+
 export default function PricingSettings() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -285,7 +303,8 @@ export default function PricingSettings() {
                     disableDefaultUI: false,
                     zoomControl: true,
                     streetViewControl: false,
-                    mapTypeControl: false
+                    mapTypeControl: false,
+                    styles: mapStyles
                   }}
                 >
                   {baseLatitude && baseLongitude && (

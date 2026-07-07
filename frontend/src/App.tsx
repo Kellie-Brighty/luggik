@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import LandingPage from "./pages/LandingPage";
@@ -13,10 +14,29 @@ import ProfileCompletion from "./pages/ProfileCompletion";
 import RunnerKyc from "./pages/RunnerKyc";
 import RiderFeed from "./pages/RiderFeed";
 import BuyerHistory from "./pages/BuyerHistory";
+import { unlockAudio } from "./utils/audio";
+import PwaInstallBanner from "./components/PwaInstallBanner";
 
 function App() {
+  useEffect(() => {
+    const handleUnlock = () => {
+      unlockAudio();
+      document.removeEventListener('click', handleUnlock);
+      document.removeEventListener('touchstart', handleUnlock);
+    };
+
+    document.addEventListener('click', handleUnlock);
+    document.addEventListener('touchstart', handleUnlock);
+
+    return () => {
+      document.removeEventListener('click', handleUnlock);
+      document.removeEventListener('touchstart', handleUnlock);
+    };
+  }, []);
+
   return (
     <AuthProvider>
+      <PwaInstallBanner />
       <Router>
         <Routes>
           <Route path="/" element={<LandingPage />} />
