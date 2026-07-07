@@ -25,3 +25,4 @@ dist/
 *.mjs
 test_*.ts
 AI-directive.md
+ecosystem.config.cjs
