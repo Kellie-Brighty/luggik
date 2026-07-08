@@ -1,6 +1,6 @@
 # <img src="frontend/public/favicon.svg" width="32" height="32" align="top" /> Luggik
 
-**📺 Watch the Demo Video:** [https://youtu.be/V_jU5IcJ8D0](https://youtu.be/V_jU5IcJ8D0)
+**📺 Watch the Demo Video:** [https://youtu.be/V_jU5lcJ8D0?si=m2-DfIJCR_7iBFHC](https://youtu.be/V_jU5lcJ8D0?si=m2-DfIJCR_7iBFHC)
 
 ### 🧪 Reviewer Testing Credentials
 To make testing easy for the judges, here are pre-configured accounts:
