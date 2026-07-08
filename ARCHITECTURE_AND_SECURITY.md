@@ -2,6 +2,13 @@
 
 **Nomba x DevCareer Hackathon 2026 Submission**
 
+### Reviewer Testing Credentials
+To make testing easy for the judges, here are pre-configured accounts:
+- **Rider Account**: `trexroom@gmail.com` | Password: `Kelly1111`
+- **Logistics Company Account**: `nombalogistics@gmail.com` | Password: `Nomba1111`
+
+*Note: Buyers do not need to be authenticated to use Luggik! Anyone can create and track an order as a buyer seamlessly.*
+
 ## 1. Overview
 Luggik is a secure, escrow-backed logistics marketplace that connects buyers with merchants and delivery riders. To ensure absolute trust, Luggik utilizes the Nomba API infrastructure to create dynamic virtual accounts, process escrow payments, and handle automated payouts upon delivery completion.
 

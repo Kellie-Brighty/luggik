@@ -2,6 +2,13 @@
 
 **📺 Watch the Demo Video:** [https://youtu.be/V_jU5IcJ8D0](https://youtu.be/V_jU5IcJ8D0)
 
+### 🧪 Reviewer Testing Credentials
+To make testing easy for the judges, here are pre-configured accounts:
+- **Rider Account**: `trexroom@gmail.com` | Password: `Kelly1111`
+- **Logistics Company Account**: `nombalogistics@gmail.com` | Password: `Nomba1111`
+
+*Note: Buyers do not need to be authenticated to use Luggik! Anyone can create and track an order as a buyer seamlessly.*
+
 **Luggik** is a secure, local delivery dispatch and escrow platform designed specifically to bridge the trust gap in the Nigerian e-commerce and logistics market. 
 
 Luggik acts as the ultimate intermediary between **Buyers**, **Vendors (Sellers)**, and **Logistics Partners (Runners)**, ensuring that money is protected, items are verified before transit, and deliveries are tracked in real time.

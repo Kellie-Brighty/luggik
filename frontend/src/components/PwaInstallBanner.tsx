@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 
 export default function PwaInstallBanner() {
   const [showBanner, setShowBanner] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isIOS, setIsIOS] = useState(false);
 
@@ -78,16 +79,20 @@ export default function PwaInstallBanner() {
     }
   };
 
+
+
   const handleClose = () => {
-    setShowBanner(false);
-    // User requested: "temporarily closable... each time they refresh the page, if they have not added... they should always see the banner"
-    // So we DO NOT save the dismissal to localStorage.
+    setIsClosing(true);
+    setTimeout(() => {
+      setShowBanner(false);
+    }, 300); // Wait for animation to finish before removing from DOM
   };
 
   if (!showBanner) return null;
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[100] bg-[#111111] text-white p-4 shadow-lg flex items-center justify-between gap-4 animate-in slide-in-from-top-full duration-300">
+    <div className={`w-full relative z-[100] bg-[#111111] text-white shadow-lg overflow-hidden transition-all duration-300 ease-in-out ${isClosing ? 'h-0 opacity-0 py-0' : 'h-[72px] opacity-100 py-4 px-4'}`}>
+      <div className="flex items-center justify-between gap-4 h-full max-w-[1400px] mx-auto">
       <div className="flex items-center gap-3 flex-1">
         <div className="w-10 h-10 bg-[#2A2925] rounded-xl flex items-center justify-center shrink-0 border border-[#3E3C36]">
           <svg className="w-5 h-5 text-[#FFCC00]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -114,6 +119,7 @@ export default function PwaInstallBanner() {
         >
           <X className="w-5 h-5" />
         </button>
+      </div>
       </div>
     </div>
   );
